@@ -447,21 +447,24 @@ function GlobalSearch({onOpenEmployee}){
    ===================================================================== */
 function Dashboard({profile, onOpenEmployee}){
   const s = useAsync(async ()=>{
-    const [stats, contratos, empleados, vacaciones] = await Promise.all([
+    const [stats, contratos, empleados, vacaciones, proximas] = await Promise.all([
       sb.from("v_dashboard_stats").select("*").single(),
       sb.from("contracts").select("id,employee_id,contract_number,end_date,status,employees(first_name,last_name)")
         .eq("status","vigente").not("end_date","is",null).order("end_date",{ascending:true}).limit(200),
       sb.from("employees").select("id,first_name,last_name,hire_date,termination_date,status").eq("status","activo"),
       sb.from("vacations").select("employee_id,days,status"),
+      sb.from("vacations").select("id,employee_id,start_date,end_date,days,status,employees(first_name,last_name)")
+        .gte("end_date",todayISO()).order("start_date",{ascending:true}).limit(8),
     ]);
     if(stats.error) throw stats.error;
-    return { stats:stats.data, contratos:contratos.data||[], empleados:empleados.data||[], vacaciones:vacaciones.data||[] };
+    return { stats:stats.data, contratos:contratos.data||[], empleados:empleados.data||[],
+             vacaciones:vacaciones.data||[], proximas:proximas.data||[] };
   }, []);
 
   if(s.loading) return <div><h2 className="section-title">Resumen</h2><SkeletonRows cols={4} rows={2}/></div>;
   if(s.error) return <div className="card"><b>⚠️ {s.error}</b><div style={{marginTop:10}}><button className="btn ghost sm" onClick={s.reload}>Reintentar</button></div></div>;
 
-  const { stats:st, contratos, empleados, vacaciones } = s.data;
+  const { stats:st, contratos, empleados, vacaciones, proximas } = s.data;
   // Alertas contractuales
   const alertContratos = contratos.map(c=>{
     const r = diffDays(todayISO(), c.end_date);
@@ -521,6 +524,21 @@ function Dashboard({profile, onOpenEmployee}){
               </div>
             ))}
           </div>}
+
+      <h2 className="section-title" style={{marginTop:24}}>Próximas vacaciones y en curso</h2>
+      {proximas.length===0 ? <Empty text="No hay vacaciones programadas por ahora."/> :
+        <div className="grid" style={{gap:8}}>
+          {proximas.map(v=>(
+            <div key={v.id} className="card" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",cursor:"pointer"}}
+              onClick={()=>onOpenEmployee(v.employee_id)}>
+              <div>
+                <div style={{fontWeight:700,fontSize:13.5}}>{v.employees? v.employees.first_name+" "+v.employees.last_name : "—"}</div>
+                <div className="muted" style={{fontSize:12.5}}>{fmt(v.start_date)} — {fmt(v.end_date)} · {v.days} días</div>
+              </div>
+              <Badge status={v.status}/>
+            </div>
+          ))}
+        </div>}
     </div>
   );
 }
@@ -534,14 +552,82 @@ const emptyEmp = ()=>({
   termination_date:"", salary:"", bank_name:"", bank_account:"", emergency_contact:"", emergency_phone:"", notes:""
 });
 
+const empToForm = (e)=>({
+  id:e.id, first_name:e.first_name||"", last_name:e.last_name||"", document_type:e.document_type||"CC",
+  document_number:e.document_number||"", birth_date:e.birth_date||"", gender:e.gender||"",
+  email:e.email||"", phone:e.phone||"", address:e.address||"", city:e.city||"",
+  department_id:e.department_id||"", position_title:e.position_title||"", hire_date:e.hire_date||todayISO(),
+  termination_date:e.termination_date||"", salary:e.salary!=null?e.salary:"", bank_name:e.bank_name||"",
+  bank_account:e.bank_account||"", emergency_contact:e.emergency_contact||"", emergency_phone:e.emergency_phone||"", notes:e.notes||""
+});
+
+/* Formulario reutilizable de empleado: crea (sin id) o edita (con id) */
+function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
+  const [form,setForm] = useState(initial);
+  const [busy,setBusy] = useState(false);
+  const toast = useToast();
+  const isEdit = !!initial.id;
+  const set = (k)=>(e)=>setForm({...form,[k]:e.target.value});
+
+  const save = async ()=>{
+    if(!form.first_name.trim()||!form.last_name.trim()||!form.document_number.trim()){ toast("Nombre, apellido y cédula son obligatorios.","err"); return; }
+    setBusy(true);
+    try{
+      const payload = {...form};
+      ["department_id","birth_date","termination_date","salary"].forEach(k=>{ if(payload[k]==="") payload[k]=null; });
+      payload.status = payload.termination_date ? "retirado" : "activo";
+      let error;
+      if(isEdit){
+        const id = payload.id; delete payload.id;
+        ({ error } = await sb.from("employees").update(payload).eq("id",id));
+      }else{
+        payload.created_by = profile.id;
+        ({ error } = await sb.from("employees").insert(payload));
+      }
+      if(error) throw error;
+      toast(isEdit?"Empleado actualizado.":"Empleado registrado correctamente.","ok");
+      onSaved && onSaved(); onClose();
+    }catch(e){ toast(friendlyError(e),"err"); }
+    finally{ setBusy(false); }
+  };
+
+  return (
+    <Modal title={isEdit?"Editar empleado":"Nuevo empleado"} onClose={onClose} wide>
+      <div className="grid form-grid">
+        <Field label="Nombres"><input value={form.first_name} onChange={set("first_name")}/></Field>
+        <Field label="Apellidos"><input value={form.last_name} onChange={set("last_name")}/></Field>
+        <Field label="Tipo doc."><select value={form.document_type} onChange={set("document_type")}>{["CC","CE","TI","PA","PEP"].map(t=><option key={t}>{t}</option>)}</select></Field>
+        <Field label="Número de documento"><input value={form.document_number} onChange={set("document_number")}/></Field>
+        <Field label="Fecha de nacimiento"><input type="date" value={form.birth_date} onChange={set("birth_date")}/></Field>
+        <Field label="Género"><select value={form.gender} onChange={set("gender")}><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></Field>
+        <Field label="Correo"><input type="email" value={form.email} onChange={set("email")}/></Field>
+        <Field label="Teléfono"><input value={form.phone} onChange={set("phone")}/></Field>
+        <Field label="Dirección"><input value={form.address} onChange={set("address")}/></Field>
+        <Field label="Ciudad"><input value={form.city} onChange={set("city")}/></Field>
+        <Field label="Área"><select value={form.department_id} onChange={set("department_id")}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+        <Field label="Cargo"><input value={form.position_title} onChange={set("position_title")}/></Field>
+        <Field label="Fecha de ingreso"><input type="date" value={form.hire_date} onChange={set("hire_date")}/></Field>
+        <Field label="Fecha de retiro (opcional)"><input type="date" value={form.termination_date} onChange={set("termination_date")}/></Field>
+        <Field label="Salario base"><input type="number" value={form.salary} onChange={set("salary")}/></Field>
+        <Field label="Banco"><input value={form.bank_name} onChange={set("bank_name")}/></Field>
+        <Field label="Cuenta bancaria"><input value={form.bank_account} onChange={set("bank_account")}/></Field>
+        <Field label="Contacto de emergencia"><input value={form.emergency_contact} onChange={set("emergency_contact")}/></Field>
+        <Field label="Tel. emergencia"><input value={form.emergency_phone} onChange={set("emergency_phone")}/></Field>
+      </div>
+      <Field label="Notas"><textarea value={form.notes} onChange={set("notes")}/></Field>
+      <div className="rowbtns" style={{marginTop:14}}>
+        <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}{isEdit?"Guardar cambios":"Registrar empleado"}</button>
+        <button className="btn ghost" onClick={onClose}>Cancelar</button>
+      </div>
+    </Modal>
+  );
+}
+
 function Empleados({profile, departments, onOpenEmployee}){
   const write = canWrite(profile.role, "employees");
   const [q,setQ] = useState("");
   const [dep,setDep] = useState("");
   const [showForm,setShowForm] = useState(false);
-  const [form,setForm] = useState(emptyEmp());
-  const [busy,setBusy] = useState(false);
-  const toast = useToast();
   const tmr = useRef(null);
   const [term,setTerm] = useState("");
 
@@ -558,29 +644,13 @@ function Empleados({profile, departments, onOpenEmployee}){
     return data;
   }, [term, dep]);
 
-  const guardar = async ()=>{
-    if(!form.first_name.trim()||!form.last_name.trim()||!form.document_number.trim()){ toast("Nombre, apellido y cédula son obligatorios.","err"); return; }
-    setBusy(true);
-    try{
-      const payload = {...form};
-      ["department_id","birth_date","termination_date","salary"].forEach(k=>{ if(payload[k]==="") payload[k]=null; });
-      payload.status = payload.termination_date ? "retirado" : "activo";
-      payload.created_by = profile.id;
-      const { error } = await sb.from("employees").insert(payload);
-      if(error) throw error;
-      toast("Empleado registrado correctamente.","ok");
-      setShowForm(false); setForm(emptyEmp()); data.reload();
-    }catch(e){ toast(friendlyError(e),"err"); }
-    finally{ setBusy(false); }
-  };
-
   const depName = (id)=> (departments.find(d=>d.id===id)||{}).name || "—";
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
         <h2 className="section-title" style={{margin:0}}>Empleados</h2>
-        {write && <button className="btn primary" onClick={()=>{setForm(emptyEmp());setShowForm(true);}}>+ Nuevo empleado</button>}
+        {write && <button className="btn primary" onClick={()=>setShowForm(true)}>+ Nuevo empleado</button>}
       </div>
 
       <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
@@ -613,34 +683,8 @@ function Empleados({profile, departments, onOpenEmployee}){
        </div>}
 
       {showForm && (
-        <Modal title="Nuevo empleado" onClose={()=>setShowForm(false)} wide>
-          <div className="grid form-grid">
-            <Field label="Nombres"><input value={form.first_name} onChange={e=>setForm({...form,first_name:e.target.value})}/></Field>
-            <Field label="Apellidos"><input value={form.last_name} onChange={e=>setForm({...form,last_name:e.target.value})}/></Field>
-            <Field label="Tipo doc."><select value={form.document_type} onChange={e=>setForm({...form,document_type:e.target.value})}>{["CC","CE","TI","PA","PEP"].map(t=><option key={t}>{t}</option>)}</select></Field>
-            <Field label="Número de documento"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})}/></Field>
-            <Field label="Fecha de nacimiento"><input type="date" value={form.birth_date} onChange={e=>setForm({...form,birth_date:e.target.value})}/></Field>
-            <Field label="Género"><select value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})}><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></Field>
-            <Field label="Correo"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
-            <Field label="Teléfono"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field>
-            <Field label="Dirección"><input value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></Field>
-            <Field label="Ciudad"><input value={form.city} onChange={e=>setForm({...form,city:e.target.value})}/></Field>
-            <Field label="Área"><select value={form.department_id} onChange={e=>setForm({...form,department_id:e.target.value})}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
-            <Field label="Cargo"><input value={form.position_title} onChange={e=>setForm({...form,position_title:e.target.value})}/></Field>
-            <Field label="Fecha de ingreso"><input type="date" value={form.hire_date} onChange={e=>setForm({...form,hire_date:e.target.value})}/></Field>
-            <Field label="Fecha de retiro (opcional)"><input type="date" value={form.termination_date} onChange={e=>setForm({...form,termination_date:e.target.value})}/></Field>
-            <Field label="Salario base"><input type="number" value={form.salary} onChange={e=>setForm({...form,salary:e.target.value})}/></Field>
-            <Field label="Banco"><input value={form.bank_name} onChange={e=>setForm({...form,bank_name:e.target.value})}/></Field>
-            <Field label="Cuenta bancaria"><input value={form.bank_account} onChange={e=>setForm({...form,bank_account:e.target.value})}/></Field>
-            <Field label="Contacto de emergencia"><input value={form.emergency_contact} onChange={e=>setForm({...form,emergency_contact:e.target.value})}/></Field>
-            <Field label="Tel. emergencia"><input value={form.emergency_phone} onChange={e=>setForm({...form,emergency_phone:e.target.value})}/></Field>
-          </div>
-          <Field label="Notas"><textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></Field>
-          <div className="rowbtns" style={{marginTop:14}}>
-            <button className="btn primary" disabled={busy} onClick={guardar}>{busy&&<span className="spinner"/>}Registrar empleado</button>
-            <button className="btn ghost" onClick={()=>setShowForm(false)}>Cancelar</button>
-          </div>
-        </Modal>
+        <EmployeeFormModal initial={emptyEmp()} departments={departments} profile={profile}
+          onClose={()=>setShowForm(false)} onSaved={()=>data.reload()}/>
       )}
     </div>
   );
@@ -651,6 +695,8 @@ function Empleados({profile, departments, onOpenEmployee}){
    ===================================================================== */
 function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes, onBack}){
   const [tab,setTab] = useState("personal");
+  const [showEdit,setShowEdit] = useState(false);
+  const toast = useToast();
   const write = canWrite(profile.role,"employees");
   const showSalary = profile.role!=="jefe_area" && profile.role!=="empleado" ? true : (profile.role==="empleado"); // jefe no ve salario
 
@@ -663,6 +709,24 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes
   if(emp.error) return <div className="card"><button className="btn ghost sm" onClick={onBack}>← Volver</button><p><b>⚠️ {emp.error}</b></p></div>;
   const e = emp.data;
   const depName = (id)=>(departments.find(d=>d.id===id)||{}).name||"—";
+
+  const marcarRetiro = async ()=>{
+    if(!confirm("¿Marcar retiro de "+e.first_name+" "+e.last_name+" con fecha de hoy?")) return;
+    const { error } = await sb.from("employees").update({termination_date:todayISO(), status:"retirado"}).eq("id",e.id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Empleado marcado como retirado.","ok"); emp.reload();
+  };
+  const reactivar = async ()=>{
+    const { error } = await sb.from("employees").update({termination_date:null, status:"activo"}).eq("id",e.id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Empleado reactivado.","ok"); emp.reload();
+  };
+  const eliminar = async ()=>{
+    if(!confirm("¿Eliminar definitivamente a "+e.first_name+" "+e.last_name+"? También se borran sus contratos, vacaciones, incapacidades y documentos.")) return;
+    const { error } = await sb.from("employees").delete().eq("id",e.id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Empleado eliminado.","ok"); onBack();
+  };
 
   const TABS = [
     {id:"personal",label:"Personal"},
@@ -678,7 +742,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes
   return (
     <div>
       <button className="btn ghost sm" onClick={onBack}>← Volver a empleados</button>
-      <div className="card" style={{margin:"14px 0 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <div className="card" style={{margin:"14px 0 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
         <div>
           <h2 style={{fontSize:20}}>{e.first_name} {e.last_name}</h2>
           <div className="kv" style={{marginTop:6}}>
@@ -687,6 +751,15 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes
             <span>Área: <b>{depName(e.department_id)}</b></span>
             <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
           </div>
+          {write && (
+            <div className="rowbtns" style={{marginTop:12}}>
+              <button className="btn ghost sm" onClick={()=>setShowEdit(true)}>Editar</button>
+              {e.status==="activo"
+                ? <button className="btn ghost sm" onClick={marcarRetiro}>Marcar retiro</button>
+                : <button className="btn ghost sm" onClick={reactivar}>Reactivar</button>}
+              <button className="btn danger sm" onClick={eliminar}>Eliminar</button>
+            </div>
+          )}
         </div>
         <Badge status={e.status}/>
       </div>
@@ -703,6 +776,11 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes
       {tab==="incapacidades" && <TabIncapacidades employeeId={e.id} profile={profile}/>}
       {tab==="documentos" && <TabDocumentos employeeId={e.id} profile={profile} docTypes={docTypes}/>}
       {tab==="auditoria" && <TabAuditoria recordId={e.id}/>}
+
+      {showEdit && (
+        <EmployeeFormModal initial={empToForm(e)} departments={departments} profile={profile}
+          onClose={()=>setShowEdit(false)} onSaved={()=>emp.reload()}/>
+      )}
     </div>
   );
 }
@@ -1269,6 +1347,172 @@ function TabAuditoria({recordId}){
 }
 
 /* =====================================================================
+   VACACIONES (módulo global)
+   ===================================================================== */
+function VacacionesGlobal({profile}){
+  const write = canWrite(profile.role,"vacations");
+  const toast = useToast();
+  const [show,setShow] = useState(false);
+  const data = useAsync(async ()=>{
+    const [emps, vacs] = await Promise.all([
+      sb.from("employees").select("id,first_name,last_name,hire_date,termination_date,status").order("first_name"),
+      sb.from("vacations").select("*,employees(first_name,last_name)").order("start_date",{ascending:false}).limit(500),
+    ]);
+    if(emps.error) throw emps.error; if(vacs.error) throw vacs.error;
+    return { emps:emps.data||[], vacs:vacs.data||[] };
+  }, []);
+  const empty = ()=>({ employee_id:"", start_date:todayISO(), end_date:todayISO(), status:"aprobada", observations:"" });
+  const [f,setF] = useState(empty());
+  const [busy,setBusy] = useState(false);
+  const dias = daysBetween(f.start_date,f.end_date);
+  const save = async ()=>{
+    if(!f.employee_id){ toast("Selecciona un empleado.","err"); return; }
+    if(dias<=0){ toast("Rango de fechas inválido.","err"); return; }
+    setBusy(true);
+    try{
+      const p = { employee_id:f.employee_id, start_date:f.start_date, end_date:f.end_date, days:dias, status:f.status,
+        observations:f.observations||null, created_by:profile.id, approved_by: f.status==="aprobada"?profile.id:null };
+      const { error } = await sb.from("vacations").insert(p);
+      if(error) throw error;
+      toast("Vacaciones registradas.","ok"); setShow(false); setF(empty()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+  const del = async (id)=>{ if(!confirm("¿Eliminar este periodo de vacaciones?")) return;
+    const { error } = await sb.from("vacations").delete().eq("id",id);
+    if(error){ toast(friendlyError(error),"err"); return; } toast("Registro eliminado.","ok"); data.reload(); };
+
+  if(data.loading) return <div><h2 className="section-title">Vacaciones</h2><SkeletonRows cols={6} rows={5}/></div>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  const { emps, vacs } = data.data;
+  const empById = {}; emps.forEach(e=>{ empById[e.id]=e; });
+  const saldoDe = (id)=>{ const e=empById[id]; if(!e) return "—";
+    const tomadas = vacs.filter(v=>v.employee_id===id && v.status!=="rechazada").reduce((s,v)=>s+v.days,0);
+    return Math.round((vacacionesCausadas(e.hire_date,e.termination_date)-tomadas)*10)/10; };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+        <h2 className="section-title" style={{margin:0}}>Vacaciones</h2>
+        {write && <button className="btn primary" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar vacaciones</button>}
+      </div>
+      {vacs.length===0 ? <Empty text="No hay periodos de vacaciones registrados."/> :
+       <div className="table-wrap"><table>
+        <thead><tr><th>Empleado</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
+        <tbody>{vacs.map(v=>(
+          <tr key={v.id} style={{cursor:"default"}}>
+            <td><b>{v.employees? v.employees.first_name+" "+v.employees.last_name : "—"}</b></td>
+            <td>{fmt(v.start_date)}</td><td>{fmt(v.end_date)}</td><td>{v.days}</td>
+            <td>{saldoDe(v.employee_id)}</td><td><Badge status={v.status}/></td>
+            <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(v.id)}>Eliminar</button>}</td>
+          </tr>
+        ))}</tbody>
+       </table></div>}
+
+      {show && (
+        <Modal title="Registrar vacaciones" onClose={()=>setShow(false)}>
+          <div className="grid form-grid">
+            <Field label="Empleado"><select value={f.employee_id} onChange={e=>setF({...f,employee_id:e.target.value})}><option value="">Selecciona…</option>{emps.filter(e=>e.status==="activo").map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}</select></Field>
+            <Field label="Inicio"><input type="date" value={f.start_date} onChange={e=>setF({...f,start_date:e.target.value})}/></Field>
+            <Field label="Fin"><input type="date" value={f.end_date} onChange={e=>setF({...f,end_date:e.target.value})}/></Field>
+            <Field label="Estado"><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{opts(VAC_STATUS)}</select></Field>
+          </div>
+          {f.employee_id && <p className="muted" style={{margin:"10px 0"}}>Saldo actual: <b style={{color:"var(--navy)"}}>{saldoDe(f.employee_id)}</b> días · Solicitado ahora: <b style={{color:"var(--navy)"}}>{dias}</b></p>}
+          <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:8}}>
+            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* =====================================================================
+   INCAPACIDADES (módulo global)
+   ===================================================================== */
+function IncapacidadesGlobal({profile}){
+  const write = canWrite(profile.role,"disabilities");
+  const toast = useToast();
+  const [show,setShow] = useState(false);
+  const data = useAsync(async ()=>{
+    const [emps, dis] = await Promise.all([
+      sb.from("employees").select("id,first_name,last_name,status").order("first_name"),
+      sb.from("disabilities").select("*,employees(first_name,last_name)").order("start_date",{ascending:false}).limit(500),
+    ]);
+    if(emps.error) throw emps.error; if(dis.error) throw dis.error;
+    return { emps:emps.data||[], dis:dis.data||[] };
+  }, []);
+  const empty = ()=>({ employee_id:"", type:"enfermedad_general", start_date:todayISO(), end_date:todayISO(), diagnosis:"", entity:"" });
+  const [f,setF] = useState(empty());
+  const [busy,setBusy] = useState(false);
+  const dias = daysBetween(f.start_date,f.end_date);
+  const save = async ()=>{
+    if(!f.employee_id){ toast("Selecciona un empleado.","err"); return; }
+    if(dias<=0){ toast("Rango de fechas inválido.","err"); return; }
+    setBusy(true);
+    try{
+      const p = { employee_id:f.employee_id, type:f.type, start_date:f.start_date, end_date:f.end_date, days:dias, diagnosis:f.diagnosis||null, entity:f.entity||null, created_by:profile.id };
+      const { error } = await sb.from("disabilities").insert(p);
+      if(error) throw error;
+      toast("Incapacidad registrada.","ok"); setShow(false); setF(empty()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+  const del = async (id)=>{ if(!confirm("¿Eliminar esta incapacidad?")) return;
+    const { error } = await sb.from("disabilities").delete().eq("id",id);
+    if(error){ toast(friendlyError(error),"err"); return; } toast("Registro eliminado.","ok"); data.reload(); };
+
+  if(data.loading) return <div><h2 className="section-title">Incapacidades</h2><SkeletonRows cols={6} rows={5}/></div>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  const { emps, dis } = data.data;
+  const totalDias = dis.reduce((s,d)=>s+d.days,0);
+  const esteMes = dis.filter(d=>d.start_date.slice(0,7)===todayISO().slice(0,7)).length;
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+        <h2 className="section-title" style={{margin:0}}>Incapacidades</h2>
+        {write && <button className="btn primary" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar incapacidad</button>}
+      </div>
+      <div className="card" style={{marginBottom:14,display:"flex",gap:28,flexWrap:"wrap"}}>
+        <Info label="Total" value={dis.length}/>
+        <Info label="Días acumulados" value={totalDias}/>
+        <Info label="Este mes" value={esteMes}/>
+      </div>
+      {dis.length===0 ? <Empty text="No hay incapacidades registradas."/> :
+       <div className="table-wrap"><table>
+        <thead><tr><th>Empleado</th><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Entidad</th><th></th></tr></thead>
+        <tbody>{dis.map(d=>(
+          <tr key={d.id} style={{cursor:"default"}}>
+            <td><b>{d.employees? d.employees.first_name+" "+d.employees.last_name : "—"}</b></td>
+            <td>{DIS_TYPES[d.type]}</td><td>{fmt(d.start_date)}</td><td>{fmt(d.end_date)}</td><td>{d.days}</td><td>{d.entity||"—"}</td>
+            <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(d.id)}>Eliminar</button>}</td>
+          </tr>
+        ))}</tbody>
+       </table></div>}
+
+      {show && (
+        <Modal title="Registrar incapacidad" onClose={()=>setShow(false)}>
+          <div className="grid form-grid">
+            <Field label="Empleado"><select value={f.employee_id} onChange={e=>setF({...f,employee_id:e.target.value})}><option value="">Selecciona…</option>{emps.filter(e=>e.status==="activo").map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}</select></Field>
+            <Field label="Tipo"><select value={f.type} onChange={e=>setF({...f,type:e.target.value})}>{opts(DIS_TYPES)}</select></Field>
+            <Field label="Inicio"><input type="date" value={f.start_date} onChange={e=>setF({...f,start_date:e.target.value})}/></Field>
+            <Field label="Fin"><input type="date" value={f.end_date} onChange={e=>setF({...f,end_date:e.target.value})}/></Field>
+            <Field label="Entidad (EPS/ARL)"><input value={f.entity} onChange={e=>setF({...f,entity:e.target.value})}/></Field>
+          </div>
+          <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
+          <Field label="Diagnóstico / observaciones"><textarea value={f.diagnosis} onChange={e=>setF({...f,diagnosis:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:8}}>
+            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* =====================================================================
    AUDITORÍA GLOBAL
    ===================================================================== */
 function Auditoria(){
@@ -1375,6 +1619,8 @@ function Workspace({session, profile, onSignOut}){
   const NAV = [
     {id:"dashboard", label:"Resumen", ico:"▣", show:true},
     {id:"empleados", label:"Empleados", ico:"👥", show:true},
+    {id:"vacaciones", label:"Vacaciones", ico:"🏖", show:true},
+    {id:"incapacidades", label:"Incapacidades", ico:"🩺", show:true},
     {id:"auditoria", label:"Auditoría", ico:"📋", show:profile.role==="administrador"},
     {id:"usuarios",  label:"Usuarios y roles", ico:"⚙", show:profile.role==="administrador"},
   ].filter(n=>n.show);
@@ -1413,6 +1659,8 @@ function Workspace({session, profile, onSignOut}){
           {view==="empleados" && empId &&
             <EmployeeProfile employeeId={empId} profile={profile} departments={departments}
               ssEntities={ssEntities} docTypes={docTypes} onBack={()=>setEmpId(null)}/>}
+          {view==="vacaciones" && <VacacionesGlobal profile={profile}/>}
+          {view==="incapacidades" && <IncapacidadesGlobal profile={profile}/>}
           {view==="auditoria" && <Auditoria/>}
           {view==="usuarios" && <Usuarios profile={profile} departments={departments}/>}
         </div>
