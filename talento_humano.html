@@ -183,10 +183,12 @@
 <!-- Dependencias por CDN (frontend usa SOLO la anon/public key) -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script type="text/babel" data-presets="react">
+/* @jsxRuntime classic */
+/* @jsx React.createElement */
 /* =====================================================================
    CONFIGURACIÓN  ·  Reemplaza SOLO estos dos valores por los de tu
    proyecto (Supabase -> Project Settings -> API).
