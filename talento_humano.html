@@ -1437,8 +1437,12 @@ function Root(){
 
   const loadProfile = useCallback(async (uid)=>{
     setProfileError(null);
-    const { data, error } = await sb.from("profiles").select("*").eq("id",uid).single();
+    const { data, error } = await sb.from("profiles").select("*").eq("id",uid).maybeSingle();
     if(error){ setProfileError(friendlyError(error)); setProfile(null); return; }
+    if(!data){
+      setProfileError("Tu usuario aún no tiene un perfil en la base de datos. Ejecuta en Supabase el script para crear perfiles faltantes (o pide al administrador que te asigne un rol) y vuelve a entrar.");
+      setProfile(null); return;
+    }
     setProfile(data);
   }, []);
 
