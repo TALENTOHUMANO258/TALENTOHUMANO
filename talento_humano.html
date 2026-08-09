@@ -625,11 +625,17 @@ function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
 
 function Empleados({profile, departments, onOpenEmployee}){
   const write = canWrite(profile.role, "employees");
+  const toast = useToast();
   const [q,setQ] = useState("");
   const [dep,setDep] = useState("");
   const [showForm,setShowForm] = useState(false);
   const tmr = useRef(null);
   const [term,setTerm] = useState("");
+
+  const blank = { nombre:"", document_number:"", cargo:"", ciudad:"", hire_date:todayISO(),
+    termination_date:"", contract_type:"termino_fijo", end_date:"" };
+  const [form,setForm] = useState(blank);
+  const [busy,setBusy] = useState(false);
 
   useEffect(()=>{ if(tmr.current)clearTimeout(tmr.current); tmr.current=setTimeout(()=>setTerm(q.trim().replace(/[,()*%]/g," ")),300); },[q]);
 
@@ -646,12 +652,64 @@ function Empleados({profile, departments, onOpenEmployee}){
 
   const depName = (id)=> (departments.find(d=>d.id===id)||{}).name || "—";
 
+  const registrarIngreso = async ()=>{
+    if(!form.nombre.trim()||!form.document_number.trim()){ toast("Nombre y cédula son obligatorios.","err"); return; }
+    setBusy(true);
+    try{
+      const p = form.nombre.trim().split(/\s+/); const mid = Math.ceil(p.length/2);
+      const first_name = p.slice(0,mid).join(" ");
+      const last_name  = p.slice(mid).join(" ") || first_name;
+      const empPayload = {
+        first_name, last_name, document_number:form.document_number.trim(),
+        position_title:form.cargo||null, city:form.ciudad||null,
+        hire_date:form.hire_date, termination_date:form.termination_date||null,
+        status: form.termination_date ? "retirado" : "activo", created_by:profile.id
+      };
+      const { data:emp, error } = await sb.from("employees").insert(empPayload).select("id").single();
+      if(error) throw error;
+      // Contrato inicial (el tipo/fecha fin viven en la tabla contracts)
+      if(form.contract_type && emp){
+        const cPayload = {
+          employee_id:emp.id, contract_number:"CT-"+form.document_number.trim()+"-1",
+          type:form.contract_type, start_date:form.hire_date,
+          end_date: form.contract_type==="termino_fijo" ? (form.end_date||null) : null,
+          position_title:form.cargo||null, status:"vigente", created_by:profile.id
+        };
+        const { error:cErr } = await sb.from("contracts").insert(cPayload);
+        if(cErr) toast("Empleado creado. El contrato inicial no se guardó: "+friendlyError(cErr),"info");
+      }
+      toast("Ingreso registrado correctamente.","ok");
+      setForm(blank); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); }
+    finally{ setBusy(false); }
+  };
+
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
         <h2 className="section-title" style={{margin:0}}>Empleados</h2>
-        {write && <button className="btn primary" onClick={()=>setShowForm(true)}>+ Nuevo empleado</button>}
+        {write && <button className="btn ghost" onClick={()=>setShowForm(true)}>Ficha completa (área, salario, banco…)</button>}
       </div>
+
+      {write && (
+        <div className="card" style={{marginBottom:20}}>
+          <h3 className="section-title" style={{marginBottom:12}}>Nuevo ingreso</h3>
+          <div className="grid form-grid">
+            <Field label="Nombre completo"><input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Nombres y apellidos"/></Field>
+            <Field label="Cédula"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})} placeholder="Número de cédula"/></Field>
+            <Field label="Cargo"><input value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Cargo o puesto"/></Field>
+            <Field label="Ciudad"><input value={form.ciudad} onChange={e=>setForm({...form,ciudad:e.target.value})} placeholder="Ciudad donde labora"/></Field>
+            <Field label="Fecha de ingreso"><input type="date" value={form.hire_date} onChange={e=>setForm({...form,hire_date:e.target.value})}/></Field>
+            <Field label="Fecha de retiro (opcional)"><input type="date" value={form.termination_date} onChange={e=>setForm({...form,termination_date:e.target.value})}/></Field>
+            <Field label="Tipo de contrato"><select value={form.contract_type} onChange={e=>setForm({...form,contract_type:e.target.value})}>{opts(CONTRACT_TYPES)}</select></Field>
+            {form.contract_type==="termino_fijo" && <Field label="Fecha fin del contrato"><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})}/></Field>}
+          </div>
+          <div style={{marginTop:14}}>
+            <button className="btn primary" disabled={busy} onClick={registrarIngreso}>{busy&&<span className="spinner"/>}Registrar ingreso</button>
+          </div>
+          <p className="muted" style={{fontSize:12,marginTop:8}}>El nombre se separa en nombres y apellidos automáticamente; puedes ajustarlo luego en el expediente. Se crea también un contrato inicial.</p>
+        </div>
+      )}
 
       <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
         <input style={{flex:2,minWidth:200}} placeholder="Buscar por nombre o cédula…" value={q} onChange={e=>setQ(e.target.value)}/>
