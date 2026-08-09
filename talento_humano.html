@@ -461,17 +461,17 @@ function Dashboard({profile, onOpenEmployee}){
   if(s.loading) return <div><h2 className="section-title">Resumen</h2><SkeletonRows cols={4} rows={2}/></div>;
   if(s.error) return <div className="card"><b>⚠️ {s.error}</b><div style={{marginTop:10}}><button className="btn ghost sm" onClick={s.reload}>Reintentar</button></div></div>;
 
-  const st = s.stats;
+  const { stats:st, contratos, empleados, vacaciones } = s.data;
   // Alertas contractuales
-  const alertContratos = s.contratos.map(c=>{
+  const alertContratos = contratos.map(c=>{
     const r = diffDays(todayISO(), c.end_date);
     return {...c, restantes:r};
   }).filter(c=>c.restantes<=90).sort((a,b)=>a.restantes-b.restantes);
 
   // Alertas de vacaciones (saldo próximo a vencer)
   const tomadasPorEmp = {};
-  s.vacaciones.forEach(v=>{ tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+ (v.status!=="rechazada"?v.days:0); });
-  const alertVac = s.empleados.map(e=>{
+  vacaciones.forEach(v=>{ tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+ (v.status!=="rechazada"?v.days:0); });
+  const alertVac = empleados.map(e=>{
     const causadas = vacacionesCausadas(e.hire_date, e.termination_date);
     const saldo = Math.round((causadas-(tomadasPorEmp[e.id]||0))*10)/10;
     const aniv = proximoAniversario(e.hire_date);
@@ -797,14 +797,15 @@ function TabContratos({employeeId, profile, departments}){
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
   if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  const { contracts, adds:allAdds } = data.data;
 
   return (
     <div>
       {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setCf(emptyC());setShowC(true);}}>+ Nuevo contrato</button></div>}
-      {data.contracts.length===0 ? <Empty text="Este empleado no tiene contratos registrados."/> :
+      {contracts.length===0 ? <Empty text="Este empleado no tiene contratos registrados."/> :
         <div className="grid" style={{gap:12}}>
-          {data.contracts.map(c=>{
-            const adds = data.adds.filter(a=>a.contract_id===c.id);
+          {contracts.map(c=>{
+            const adds = allAdds.filter(a=>a.contract_id===c.id);
             const showSalary = profile.role!=="jefe_area";
             return (
               <div key={c.id} className="card">
@@ -940,8 +941,9 @@ function TabSeguridad({employeeId, profile, ssEntities}){
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
   if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  const { aff, nov } = data.data;
 
-  const byKind = (k)=> data.aff.find(a=>a.kind===k);
+  const byKind = (k)=> aff.find(a=>a.kind===k);
   const entName = (a)=> a ? (a.entity_name || (ssEntities.find(x=>x.id===a.entity_id)||{}).name || "—") : "—";
 
   return (
@@ -973,10 +975,10 @@ function TabSeguridad({employeeId, profile, ssEntities}){
       </div>
 
       <h3 className="section-title" style={{fontSize:14}}>Novedades de seguridad social</h3>
-      {data.nov.length===0 ? <Empty text="No hay novedades registradas."/> :
+      {nov.length===0 ? <Empty text="No hay novedades registradas."/> :
         <div className="table-wrap"><table>
           <thead><tr><th>Tipo</th><th>Fecha</th><th>Aplicación</th><th>Descripción</th><th>Estado</th></tr></thead>
-          <tbody>{data.nov.map(x=>(
+          <tbody>{nov.map(x=>(
             <tr key={x.id} style={{cursor:"default"}}>
               <td>{NOVELTY_TYPES[x.type]}</td><td>{fmt(x.date)}</td><td>{fmt(x.application_date)}</td>
               <td style={{whiteSpace:"normal"}}>{x.description||"—"}</td><td><Badge status={x.status}/></td>
