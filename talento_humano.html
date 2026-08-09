@@ -197,6 +197,7 @@
 const SUPABASE_URL      = "https://bemhrdkcrihjdkzfmtgf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlbWhyZGtjcmloamRremZtdGdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE5MjUsImV4cCI6MjEwMTg1NzkyNX0.9GUikIKf9B_H3TdmpJxLBiwNxDdu6putQ2iXhQPghck";
 
+const APP_VERSION = "v7 · nuevo-ingreso-inline";
 const LOGO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='#0F2749'/><text x='50' y='62' font-size='34' fill='#2E9FD6' text-anchor='middle' font-family='serif' font-weight='700'>CU</text></svg>"
 );
@@ -1702,6 +1703,7 @@ function Workspace({session, profile, onSignOut}){
           <div className="u">{profile.full_name||session.user.email}</div>
           <div>{ROLE_LABELS[profile.role]}</div>
           <button onClick={onSignOut}>Cerrar sesión</button>
+          <div style={{marginTop:8,fontSize:10.5,color:"#6E86A0"}}>{APP_VERSION}</div>
         </div>
       </aside>
 
