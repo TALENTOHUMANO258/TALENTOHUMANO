@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talento Humano · Centro Especializado de Urología</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0F2749; --navy-soft:#233C5C; --sky:#2E9FD6; --sky-soft:#E4F3FA;
+    --paper:#F3F7FA; --card:#FFFFFF; --border:#D9E3EC; --border-input:#C6D6E2;
+    --muted:#5B6B7A; --green:#3F8F5F; --green-bg:#E7F3EC; --red:#B8483F; --red-bg:#FBEAE8;
+    --amber:#C07A16; --amber-bg:#FBF0DD;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--navy);-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Roboto Slab',serif;margin:0}
+  a{color:var(--sky)}
+  #root{min-height:100vh}
+
+  /* ---- Layout ---- */
+  .shell{display:flex;min-height:100vh}
+  .sidebar{width:236px;background:var(--navy);color:#DCE6F0;display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .brand img{width:40px;height:40px;border-radius:50%;background:#fff;object-fit:contain;flex-shrink:0}
+  .brand b{font-family:'Roboto Slab',serif;font-size:14px;color:#fff;line-height:1.15}
+  .brand span{font-size:11px;color:var(--sky)}
+  .nav{flex:1;overflow-y:auto;padding:8px}
+  .nav button{width:100%;text-align:left;background:transparent;border:none;color:#9FB3C4;font-family:'Inter',sans-serif;
+    font-size:13.5px;font-weight:600;padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center}
+  .nav button:hover{background:rgba(255,255,255,.06);color:#fff}
+  .nav button.active{background:var(--sky);color:#fff}
+  .nav .ico{width:18px;text-align:center}
+  .sidebar .foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:#8AA0B4}
+  .sidebar .foot .u{color:#fff;font-weight:700}
+  .sidebar .foot button{margin-top:8px;background:transparent;border:1px solid rgba(255,255,255,.18);color:#DCE6F0;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;width:100%}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{background:#fff;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;gap:14px;align-items:center;position:sticky;top:0;z-index:20}
+  .topbar .search{flex:1;max-width:520px;position:relative}
+  .topbar .search input{width:100%}
+  .topbar .role-chip{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sky);background:var(--sky-soft);padding:5px 10px;border-radius:999px}
+  .hamburger{display:none;background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:16px;cursor:pointer;color:var(--navy)}
+  .content{padding:20px;max-width:1180px;width:100%;margin:0 auto}
+
+  /* ---- Cards / grid ---- */
+  .card{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:16px 18px}
+  .grid{display:grid;gap:12px}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .stat .n{font-family:'Roboto Slab',serif;font-size:28px;font-weight:700;margin:4px 0 0}
+  .stat .l{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .form-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+
+  /* ---- Forms ---- */
+  label.f{display:flex;flex-direction:column;gap:5px;font-size:13px}
+  label.f>span{color:var(--muted);font-weight:600}
+  input,select,textarea{border:1.5px solid var(--border-input);border-radius:6px;padding:9px 10px;font-size:14px;
+    font-family:'Inter',sans-serif;background:#FCFDFE;color:var(--navy);outline:none;width:100%}
+  input:focus,select:focus,textarea:focus{border-color:var(--sky)}
+  textarea{min-height:64px;resize:vertical}
+
+  .btn{border:none;border-radius:6px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
+  .btn.primary{background:var(--navy);color:#F3F7FA}
+  .btn.primary:hover{background:var(--navy-soft)}
+  .btn.ghost{background:transparent;color:var(--navy);border:1.5px solid var(--border-input);font-weight:600}
+  .btn.danger{background:var(--red);color:#fff}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn.sm{padding:6px 12px;font-size:12px}
+  .linkbtn{background:none;border:none;cursor:pointer;font-weight:700;font-size:12.5px;font-family:'Inter',sans-serif;padding:0}
+
+  /* ---- Badges ---- */
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;padding:4px 10px;border-radius:999px;border:1.5px solid}
+  .badge .dot{width:6px;height:6px;border-radius:50%}
+  .b-green{color:#2A6B44;background:var(--green-bg);border-color:var(--green)}
+  .b-green .dot{background:var(--green)}
+  .b-red{color:#8A342C;background:var(--red-bg);border-color:var(--red)}
+  .b-red .dot{background:var(--red)}
+  .b-amber{color:#7A4E0E;background:var(--amber-bg);border-color:var(--amber)}
+  .b-amber .dot{background:var(--amber)}
+  .b-sky{color:#1B5A7A;background:var(--sky-soft);border-color:var(--sky)}
+  .b-sky .dot{background:var(--sky)}
+
+  /* ---- Tables ---- */
+  .table-wrap{overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;background:#fff}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{background:#F7FAFC;color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}
+  tbody tr:hover{background:#F9FBFD;cursor:pointer}
+  tbody tr:last-child td{border-bottom:none}
+
+  /* ---- Alerts ---- */
+  .alert{border-radius:10px;padding:12px 16px;border:1.5px solid;display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .alert .t{font-weight:700;font-size:13.5px}
+  .alert .s{font-size:12.5px;margin-top:2px}
+  .a-red{background:var(--red-bg);border-color:var(--red);color:#8A342C}
+  .a-amber{background:var(--amber-bg);border-color:var(--amber);color:#7A4E0E}
+  .a-sky{background:var(--sky-soft);border-color:var(--sky);color:#1B5A7A}
+
+  /* ---- Modal ---- */
+  .overlay{position:fixed;inset:0;background:rgba(15,39,73,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px;z-index:60;overflow-y:auto}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:760px;padding:22px;margin:auto}
+  .modal h2{font-size:17px;margin-bottom:14px}
+  .modal .x{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
+
+  /* ---- Tabs ---- */
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1.5px solid var(--border);margin-bottom:16px}
+  .tabs button{background:none;border:none;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);
+    border-bottom:2.5px solid transparent;margin-bottom:-1.5px;font-family:'Inter',sans-serif}
+  .tabs button.active{color:var(--navy);border-bottom-color:var(--sky)}
+
+  .empty{border:1.5px dashed var(--border-input);border-radius:10px;padding:22px;text-align:center;color:var(--muted);font-size:13px}
+  .section-title{font-size:15px;margin-bottom:12px}
+  .muted{color:var(--muted)}
+  .rowbtns{display:flex;gap:14px;flex-wrap:wrap}
+  .kv{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12.5px;color:var(--muted)}
+  .kv b{color:var(--navy)}
+
+  /* ---- Toasts ---- */
+  .toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:100;max-width:360px}
+  .toast{padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(15,39,73,.18);border:1.5px solid}
+  .toast.ok{background:var(--green-bg);border-color:var(--green);color:#2A6B44}
+  .toast.err{background:var(--red-bg);border-color:var(--red);color:#8A342C}
+  .toast.info{background:var(--sky-soft);border-color:var(--sky);color:#1B5A7A}
+
+  /* ---- Auth ---- */
+  .auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:linear-gradient(135deg,var(--navy),var(--navy-soft))}
+  .auth .box{background:#fff;border-radius:14px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .auth .box img{width:56px;height:56px;border-radius:50%;background:#fff;display:block;margin:0 auto 10px}
+  .auth h1{text-align:center;font-size:19px}
+  .auth p.sub{text-align:center;color:var(--muted);font-size:12.5px;margin:4px 0 20px}
+  .auth .field{margin-bottom:14px}
+  .spinner{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;
+    display:inline-block;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:6px}
+  .spinner.dark{border-color:rgba(15,39,73,.25);border-top-color:var(--navy)}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .skel{background:linear-gradient(90deg,#eef3f7,#f7fafc,#eef3f7);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px;height:14px}
+  @keyframes sk{to{background-position:-200% 0}}
+
+  @media(max-width:860px){
+    .sidebar{position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%);transition:transform .2s;box-shadow:0 0 40px rgba(0,0,0,.3)}
+    .sidebar.open{transform:translateX(0)}
+    .hamburger{display:block}
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Dependencias por CDN (frontend usa SOLO la anon/public key) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script type="text/babel" data-presets="react">
+/* =====================================================================
+   CONFIGURACIÓN  ·  Reemplaza SOLO estos dos valores por los de tu
+   proyecto (Supabase -> Project Settings -> API).
+   NUNCA pongas aquí la service_role_key: en el frontend va la anon key.
+   ===================================================================== */
+const SUPABASE_URL      = "https://bemhrdkcrihjdkzfmtgf.supabase.co/rest/v1/";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlbWhyZGtjcmloamRremZtdGdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE5MjUsImV4cCI6MjEwMTg1NzkyNX0.9GUikIKf9B_H3TdmpJxLBiwNxDdu6putQ2iXhQPghck";
+
+const LOGO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='#0F2749'/><text x='50' y='62' font-size='34' fill='#2E9FD6' text-anchor='middle' font-family='serif' font-weight='700'>CU</text></svg>"
+);
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+/* ------------------------- Helpers de fecha ------------------------- */
+const todayISO = () => new Date().toISOString().slice(0,10);
+const fmt = (iso) => { if(!iso) return "—"; const [y,m,d]=iso.slice(0,10).split("-"); return `${d}/${m}/${y}`; };
+const fmtDateTime = (ts) => { if(!ts) return "—"; const d=new Date(ts); return d.toLocaleString("es-CO",{dateStyle:"short",timeStyle:"short"}); };
+const daysBetween = (a,b) => { if(!a||!b) return 0; const s=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00");
+  const n=Math.round((e-s)/86400000)+1; return n>0?n:0; };
+const diffDays = (a,b) => { const s=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00"); return Math.round((e-s)/86400000); };
+const monthsBetween = (start,end) => { if(!start) return 0; const s=new Date(start+"T00:00:00");
+  const e=end?new Date(end+"T00:00:00"):new Date(); let m=(e.getFullYear()-s.getFullYear())*12+(e.getMonth()-s.getMonth());
+  if(e.getDate()<s.getDate()) m-=1; return Math.max(0,m); };
+const vacacionesCausadas = (ingreso,retiro) => Math.round(monthsBetween(ingreso,retiro)*1.25*10)/10;
+const proximoAniversario = (ingreso) => { if(!ingreso) return null; const ing=new Date(ingreso+"T00:00:00");
+  const t=new Date(todayISO()+"T00:00:00"); let n=new Date(t.getFullYear(),ing.getMonth(),ing.getDate());
+  if(n<t) n.setFullYear(n.getFullYear()+1); return n.toISOString().slice(0,10); };
+const money = (v) => (v===null||v===undefined||v==="")?"—":new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(v);
+const esc = (s) => String(s??"");
+
+/* ------------------------- Etiquetas de enums ------------------------- */
+const ROLE_LABELS = { administrador:"Administrador", talento_humano:"Talento Humano", sst:"SST", jefe_area:"Jefe de Área", empleado:"Empleado" };
+const CONTRACT_TYPES = { termino_indefinido:"Término indefinido", termino_fijo:"Término fijo", obra_labor:"Obra o labor", prestacion_servicios:"Prestación de servicios", aprendizaje:"Aprendizaje", otro:"Otro" };
+const CONTRACT_STATUS = { vigente:"Vigente", terminado:"Terminado", renovado:"Renovado", suspendido:"Suspendido" };
+const SCHEDULES = { tiempo_completo:"Tiempo completo", medio_tiempo:"Medio tiempo", por_horas:"Por horas", teletrabajo:"Teletrabajo" };
+const ADDENDUM_TYPES = { prorroga:"Prórroga", cambio_salario:"Cambio de salario", cambio_cargo:"Cambio de cargo", cambio_funciones:"Cambio de funciones", cambio_jornada:"Cambio de jornada", otro:"Otro" };
+const SS_KINDS = { eps:"EPS", afp:"AFP (Pensión)", arl:"ARL", ccf:"Caja de Compensación", cesantias:"Cesantías" };
+const SS_STATUS = { activa:"Activa", retirada:"Retirada", suspendida:"Suspendida" };
+const NOVELTY_TYPES = { ingreso:"Ingreso", retiro:"Retiro", traslado_eps:"Traslado EPS", traslado_afp:"Traslado AFP", cambio_arl:"Cambio de ARL", cambio_ccf:"Cambio de CCF", incapacidad:"Incapacidad", licencia:"Licencia", suspension:"Suspensión", reintegro:"Reintegro", cambio_salarial:"Cambio salarial" };
+const NOVELTY_STATUS = { pendiente:"Pendiente", aplicada:"Aplicada", rechazada:"Rechazada" };
+const VAC_STATUS = { solicitada:"Solicitada", aprobada:"Aprobada", rechazada:"Rechazada", disfrutada:"Disfrutada" };
+const DIS_TYPES = { enfermedad_general:"Enfermedad general", accidente_laboral:"Accidente laboral", enfermedad_laboral:"Enfermedad laboral", licencia_maternidad:"Licencia de maternidad", licencia_paternidad:"Licencia de paternidad" };
+const EMP_STATUS = { activo:"Activo", retirado:"Retirado", suspendido:"Suspendido" };
+const opts = (obj) => Object.entries(obj).map(([v,l]) => <option key={v} value={v}>{l}</option>);
+
+/* ------------------------- Permisos (UI) ------------------------- */
+const canWrite = (role, area) => {
+  if(role==="administrador") return true;
+  if(area==="employees"||area==="contracts"||area==="social_security"||area==="vacations"||area==="documents")
+    return role==="talento_humano";
+  if(area==="disabilities") return role==="talento_humano"||role==="sst";
+  if(area==="users") return false;
+  return false;
+};
+
+/* ------------------------- Mensaje de error amigable ------------------------- */
+function friendlyError(e){
+  const msg = (e && (e.message||e.error_description||e.msg)) || "";
+  if(/Invalid login/i.test(msg)) return "Correo o contraseña incorrectos.";
+  if(/Email not confirmed/i.test(msg)) return "Debes confirmar tu correo antes de ingresar.";
+  if(/row-level security|violates row-level/i.test(msg)) return "No tienes permisos para realizar esta acción.";
+  if(/duplicate key|unique/i.test(msg)) return "Ya existe un registro con ese valor único (ej. cédula o número de contrato).";
+  if(/Failed to fetch|NetworkError|network/i.test(msg)) return "No fue posible conectar. Verifica tu conexión a Internet.";
+  if(/JWT expired|token/i.test(msg)) return "Tu sesión expiró. Vuelve a iniciar sesión.";
+  return msg || "Ocurrió un error inesperado. Inténtalo nuevamente.";
+}
+
+/* =====================================================================
+   Contexto de toasts
+   ===================================================================== */
+const ToastCtx = React.createContext(()=>{});
+function useToast(){ return React.useContext(ToastCtx); }
+
+function Toasts({items}){
+  return (
+    <div className="toasts">
+      {items.map(t => <div key={t.id} className={"toast "+t.kind}>{t.msg}</div>)}
+    </div>
+  );
+}
+
+/* =====================================================================
+   Átomos de UI
+   ===================================================================== */
+function Badge({status}){
+  const map = {
+    activo:"b-green", vigente:"b-green", aprobada:"b-green", activa:"b-green", aplicada:"b-green", disfrutada:"b-sky",
+    retirado:"b-red", terminado:"b-red", rechazada:"b-red", retirada:"b-red", vencido:"b-red",
+    suspendido:"b-amber", suspendida:"b-amber", pendiente:"b-amber", solicitada:"b-amber", renovado:"b-sky",
+  };
+  const cls = map[status] || "b-sky";
+  const label = EMP_STATUS[status]||CONTRACT_STATUS[status]||VAC_STATUS[status]||SS_STATUS[status]||NOVELTY_STATUS[status]||status;
+  return <span className={"badge "+cls}><span className="dot"/>{label}</span>;
+}
+function Field({label, children}){ return <label className="f"><span>{label}</span>{children}</label>; }
+function Empty({text}){ return <div className="empty">{text}</div>; }
+function Modal({title, onClose, children, wide}){
+  return (
+    <div className="overlay" onMouseDown={(e)=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal" style={wide?{maxWidth:920}:null}>
+        <button className="x" onClick={onClose}>×</button>
+        <h2>{title}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+function SkeletonRows({cols=4, rows=4}){
+  return (
+    <div className="table-wrap"><table><tbody>
+      {Array.from({length:rows}).map((_,r)=>(
+        <tr key={r}>{Array.from({length:cols}).map((_,c)=><td key={c}><div className="skel"/></td>)}</tr>
+      ))}
+    </tbody></table></div>
+  );
+}
+
+/* =====================================================================
+   Hook de carga de datos con manejo de error
+   ===================================================================== */
+function useAsync(fn, deps){
+  const [state,setState] = useState({loading:true, error:null, data:null});
+  const toast = useToast();
+  const run = useCallback(async ()=>{
+    setState(s=>({...s, loading:true, error:null}));
+    try{
+      const data = await fn();
+      setState({loading:false, error:null, data});
+    }catch(e){
+      setState({loading:false, error:friendlyError(e), data:null});
+      if(toast) toast(friendlyError(e), "err");
+    }
+  }, deps); // eslint-disable-line
+  useEffect(()=>{ run(); }, [run]);
+  return {...state, reload:run};
+}
+
+/* =====================================================================
+   PANTALLA DE LOGIN
+   ===================================================================== */
+function Auth(){
+  const [mode,setMode] = useState("login"); // login | reset
+  const [email,setEmail] = useState("");
+  const [pass,setPass] = useState("");
+  const [busy,setBusy] = useState(false);
+  const [msg,setMsg] = useState(null);
+  const [err,setErr] = useState(null);
+
+  const submit = async (e)=>{
+    e.preventDefault(); setErr(null); setMsg(null); setBusy(true);
+    try{
+      if(mode==="login"){
+        const { data, error } = await sb.auth.signInWithPassword({ email:email.trim(), password:pass });
+        if(error) throw error;
+        // auditoría de inicio de sesión (no bloqueante)
+        if(data && data.user) sb.from("audit_logs").insert({ profile_id:data.user.id, action:"LOGIN", description:"Inicio de sesión" }).then(()=>{}).catch(()=>{});
+        // el listener global cambia de pantalla
+      }else{
+        const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.href });
+        if(error) throw error;
+        setMsg("Te enviamos un correo para restablecer la contraseña (si el correo existe).");
+      }
+    }catch(e2){ setErr(friendlyError(e2)); }
+    finally{ setBusy(false); }
+  };
+
+  return (
+    <div className="auth">
+      <form className="box" onSubmit={submit}>
+        <img src={LOGO_SRC} alt="logo"/>
+        <h1>Centro Especializado de Urología</h1>
+        <p className="sub">Gestión y Control de Talento Humano</p>
+
+        <div className="field">
+          <Field label="Correo electrónico">
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="username" placeholder="usuario@dominio.com"/>
+          </Field>
+        </div>
+        {mode==="login" && (
+          <div className="field">
+            <Field label="Contraseña">
+              <input type="password" value={pass} onChange={e=>setPass(e.target.value)} required autoComplete="current-password" placeholder="••••••••"/>
+            </Field>
+          </div>
+        )}
+
+        {err && <div className="toast err" style={{marginBottom:12}}>{err}</div>}
+        {msg && <div className="toast ok" style={{marginBottom:12}}>{msg}</div>}
+
+        <button className="btn primary" style={{width:"100%"}} disabled={busy}>
+          {busy && <span className="spinner"/>}
+          {mode==="login" ? "Ingresar" : "Enviar enlace de recuperación"}
+        </button>
+
+        <p style={{textAlign:"center",marginTop:14,fontSize:12.5}}>
+          {mode==="login"
+            ? <button type="button" className="linkbtn" style={{color:"var(--sky)"}} onClick={()=>{setMode("reset");setErr(null);}}>¿Olvidaste tu contraseña?</button>
+            : <button type="button" className="linkbtn" style={{color:"var(--sky)"}} onClick={()=>{setMode("login");setErr(null);setMsg(null);}}>Volver a iniciar sesión</button>}
+        </p>
+      </form>
+    </div>
+  );
+}
+
+/* =====================================================================
+   BÚSQUEDA GLOBAL
+   ===================================================================== */
+function GlobalSearch({onOpenEmployee}){
+  const [q,setQ] = useState("");
+  const [res,setRes] = useState([]);
+  const [open,setOpen] = useState(false);
+  const tmr = useRef(null);
+
+  useEffect(()=>{
+    if(tmr.current) clearTimeout(tmr.current);
+    if(!q.trim()){ setRes([]); return; }
+    tmr.current = setTimeout(async ()=>{
+      const term = q.trim().replace(/[,()*%]/g," ");
+      if(!term){ setRes([]); return; }
+      const { data, error } = await sb.from("employees")
+        .select("id,first_name,last_name,document_number,position_title,city,status")
+        .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,document_number.ilike.%${term}%,position_title.ilike.%${term}%,city.ilike.%${term}%`)
+        .limit(8);
+      if(!error){ setRes(data||[]); setOpen(true); }
+    }, 300);
+  }, [q]);
+
+  return (
+    <div className="search" onBlur={()=>setTimeout(()=>setOpen(false),150)}>
+      <input placeholder="Buscar empleado por nombre, cédula, cargo o ciudad…" value={q}
+        onChange={e=>setQ(e.target.value)} onFocus={()=>res.length&&setOpen(true)}/>
+      {open && res.length>0 && (
+        <div className="card" style={{position:"absolute",top:"110%",left:0,right:0,zIndex:30,padding:6,maxHeight:340,overflow:"auto"}}>
+          {res.map(e=>(
+            <div key={e.id} style={{padding:"8px 10px",borderRadius:6,cursor:"pointer"}}
+              onMouseDown={()=>{ onOpenEmployee(e.id); setOpen(false); setQ(""); }}
+              onMouseOver={ev=>ev.currentTarget.style.background="#F3F7FA"}
+              onMouseOut={ev=>ev.currentTarget.style.background="transparent"}>
+              <b>{e.first_name} {e.last_name}</b>
+              <span className="muted" style={{fontSize:12}}> · {e.document_number} · {e.position_title||"—"} · {EMP_STATUS[e.status]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =====================================================================
+   DASHBOARD
+   ===================================================================== */
+function Dashboard({profile, onOpenEmployee}){
+  const s = useAsync(async ()=>{
+    const [stats, contratos, empleados, vacaciones] = await Promise.all([
+      sb.from("v_dashboard_stats").select("*").single(),
+      sb.from("contracts").select("id,employee_id,contract_number,end_date,status,employees(first_name,last_name)")
+        .eq("status","vigente").not("end_date","is",null).order("end_date",{ascending:true}).limit(200),
+      sb.from("employees").select("id,first_name,last_name,hire_date,termination_date,status").eq("status","activo"),
+      sb.from("vacations").select("employee_id,days,status"),
+    ]);
+    if(stats.error) throw stats.error;
+    return { stats:stats.data, contratos:contratos.data||[], empleados:empleados.data||[], vacaciones:vacaciones.data||[] };
+  }, []);
+
+  if(s.loading) return <div><h2 className="section-title">Resumen</h2><SkeletonRows cols={4} rows={2}/></div>;
+  if(s.error) return <div className="card"><b>⚠️ {s.error}</b><div style={{marginTop:10}}><button className="btn ghost sm" onClick={s.reload}>Reintentar</button></div></div>;
+
+  const st = s.stats;
+  // Alertas contractuales
+  const alertContratos = s.contratos.map(c=>{
+    const r = diffDays(todayISO(), c.end_date);
+    return {...c, restantes:r};
+  }).filter(c=>c.restantes<=90).sort((a,b)=>a.restantes-b.restantes);
+
+  // Alertas de vacaciones (saldo próximo a vencer)
+  const tomadasPorEmp = {};
+  s.vacaciones.forEach(v=>{ tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+ (v.status!=="rechazada"?v.days:0); });
+  const alertVac = s.empleados.map(e=>{
+    const causadas = vacacionesCausadas(e.hire_date, e.termination_date);
+    const saldo = Math.round((causadas-(tomadasPorEmp[e.id]||0))*10)/10;
+    const aniv = proximoAniversario(e.hire_date);
+    const restantes = aniv? diffDays(todayISO(), aniv):999;
+    return {e, saldo, aniv, restantes};
+  }).filter(x=>x.saldo>0 && x.restantes<=30 && x.restantes>=0).sort((a,b)=>a.restantes-b.restantes);
+
+  const bandFor = (r)=> r<0?"a-red": r<=7?"a-red": r<=30?"a-amber":"a-sky";
+  const textFor = (r)=> r<0?`Vencido hace ${-r} día(s)`: r===0?"Vence hoy": r===1?"Vence mañana":`Vence en ${r} día(s)`;
+
+  const Stat = ({l,n,color})=>(<div className="card stat"><div className="l">{l}</div><div className="n" style={{color}}>{n}</div></div>);
+
+  return (
+    <div>
+      <h2 className="section-title">Resumen</h2>
+      <div className="grid stats" style={{marginBottom:20}}>
+        <Stat l="Empleados activos" n={st.empleados_activos} color="var(--green)"/>
+        <Stat l="Retirados" n={st.empleados_retirados} color="var(--red)"/>
+        <Stat l="Contratos vigentes" n={st.contratos_vigentes} color="var(--navy)"/>
+        <Stat l="Contratos por vencer (30d)" n={st.contratos_por_vencer} color="var(--amber)"/>
+        <Stat l="Contratos vencidos" n={st.contratos_vencidos} color="var(--red)"/>
+        <Stat l="Vacaciones vigentes" n={st.vacaciones_vigentes} color="var(--sky)"/>
+        <Stat l="Incapacidades del mes" n={st.incapacidades_mes} color="var(--navy)"/>
+        <Stat l="Novedades pendientes" n={st.novedades_pendientes} color="var(--amber)"/>
+      </div>
+
+      <h2 className="section-title">Centro de alertas</h2>
+      {(alertContratos.length===0 && alertVac.length===0)
+        ? <Empty text="Sin alertas contractuales ni de vacaciones por ahora."/>
+        : <div className="grid" style={{gap:8}}>
+            {alertContratos.map(c=>(
+              <div key={"c"+c.id} className={"alert "+bandFor(c.restantes)} onClick={()=>onOpenEmployee(c.employee_id)} style={{cursor:"pointer"}}>
+                <div>
+                  <div className="t">Contrato {c.contract_number} · {c.employees? c.employees.first_name+" "+c.employees.last_name : ""}</div>
+                  <div className="s">{textFor(c.restantes)} · vence el {fmt(c.end_date)}</div>
+                </div>
+                <span className="badge b-sky"><span className="dot"/>Contrato</span>
+              </div>
+            ))}
+            {alertVac.map(v=>(
+              <div key={"v"+v.e.id} className="alert a-sky" onClick={()=>onOpenEmployee(v.e.id)} style={{cursor:"pointer"}}>
+                <div>
+                  <div className="t">Vacaciones por vencer · {v.e.first_name} {v.e.last_name}</div>
+                  <div className="s">{v.saldo} días pendientes · plazo el {fmt(v.aniv)} (en {v.restantes} días)</div>
+                </div>
+                <span className="badge b-amber"><span className="dot"/>Vacaciones</span>
+              </div>
+            ))}
+          </div>}
+    </div>
+  );
+}
+
+/* =====================================================================
+   EMPLEADOS (lista)
+   ===================================================================== */
+const emptyEmp = ()=>({
+  first_name:"", last_name:"", document_type:"CC", document_number:"", birth_date:"", gender:"",
+  email:"", phone:"", address:"", city:"", department_id:"", position_title:"", hire_date:todayISO(),
+  termination_date:"", salary:"", bank_name:"", bank_account:"", emergency_contact:"", emergency_phone:"", notes:""
+});
+
+function Empleados({profile, departments, onOpenEmployee}){
+  const write = canWrite(profile.role, "employees");
+  const [q,setQ] = useState("");
+  const [dep,setDep] = useState("");
+  const [showForm,setShowForm] = useState(false);
+  const [form,setForm] = useState(emptyEmp());
+  const [busy,setBusy] = useState(false);
+  const toast = useToast();
+  const tmr = useRef(null);
+  const [term,setTerm] = useState("");
+
+  useEffect(()=>{ if(tmr.current)clearTimeout(tmr.current); tmr.current=setTimeout(()=>setTerm(q.trim().replace(/[,()*%]/g," ")),300); },[q]);
+
+  const data = useAsync(async ()=>{
+    let query = sb.from("employees")
+      .select("id,first_name,last_name,document_number,position_title,city,department_id,status,hire_date")
+      .order("first_name",{ascending:true}).limit(300);
+    if(term) query = query.or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,document_number.ilike.%${term}%`);
+    if(dep) query = query.eq("department_id", dep);
+    const { data, error } = await query;
+    if(error) throw error;
+    return data;
+  }, [term, dep]);
+
+  const guardar = async ()=>{
+    if(!form.first_name.trim()||!form.last_name.trim()||!form.document_number.trim()){ toast("Nombre, apellido y cédula son obligatorios.","err"); return; }
+    setBusy(true);
+    try{
+      const payload = {...form};
+      ["department_id","birth_date","termination_date","salary"].forEach(k=>{ if(payload[k]==="") payload[k]=null; });
+      payload.status = payload.termination_date ? "retirado" : "activo";
+      payload.created_by = profile.id;
+      const { error } = await sb.from("employees").insert(payload);
+      if(error) throw error;
+      toast("Empleado registrado correctamente.","ok");
+      setShowForm(false); setForm(emptyEmp()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); }
+    finally{ setBusy(false); }
+  };
+
+  const depName = (id)=> (departments.find(d=>d.id===id)||{}).name || "—";
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+        <h2 className="section-title" style={{margin:0}}>Empleados</h2>
+        {write && <button className="btn primary" onClick={()=>{setForm(emptyEmp());setShowForm(true);}}>+ Nuevo empleado</button>}
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <input style={{flex:2,minWidth:200}} placeholder="Buscar por nombre o cédula…" value={q} onChange={e=>setQ(e.target.value)}/>
+        <select style={{flex:1,minWidth:160}} value={dep} onChange={e=>setDep(e.target.value)}>
+          <option value="">Todas las áreas</option>
+          {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      </div>
+
+      {data.loading ? <SkeletonRows cols={5} rows={5}/> :
+       data.error ? <div className="card"><b>⚠️ {data.error}</b></div> :
+       data.data.length===0 ? <Empty text="No hay empleados que coincidan con la búsqueda."/> :
+       <div className="table-wrap">
+        <table>
+          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Área</th><th>Ciudad</th><th>Estado</th></tr></thead>
+          <tbody>
+            {data.data.map(e=>(
+              <tr key={e.id} onClick={()=>onOpenEmployee(e.id)}>
+                <td><b>{e.first_name} {e.last_name}</b></td>
+                <td>{e.document_number}</td>
+                <td>{e.position_title||"—"}</td>
+                <td>{depName(e.department_id)}</td>
+                <td>{e.city||"—"}</td>
+                <td><Badge status={e.status}/></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+       </div>}
+
+      {showForm && (
+        <Modal title="Nuevo empleado" onClose={()=>setShowForm(false)} wide>
+          <div className="grid form-grid">
+            <Field label="Nombres"><input value={form.first_name} onChange={e=>setForm({...form,first_name:e.target.value})}/></Field>
+            <Field label="Apellidos"><input value={form.last_name} onChange={e=>setForm({...form,last_name:e.target.value})}/></Field>
+            <Field label="Tipo doc."><select value={form.document_type} onChange={e=>setForm({...form,document_type:e.target.value})}>{["CC","CE","TI","PA","PEP"].map(t=><option key={t}>{t}</option>)}</select></Field>
+            <Field label="Número de documento"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})}/></Field>
+            <Field label="Fecha de nacimiento"><input type="date" value={form.birth_date} onChange={e=>setForm({...form,birth_date:e.target.value})}/></Field>
+            <Field label="Género"><select value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})}><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></Field>
+            <Field label="Correo"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
+            <Field label="Teléfono"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field>
+            <Field label="Dirección"><input value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></Field>
+            <Field label="Ciudad"><input value={form.city} onChange={e=>setForm({...form,city:e.target.value})}/></Field>
+            <Field label="Área"><select value={form.department_id} onChange={e=>setForm({...form,department_id:e.target.value})}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+            <Field label="Cargo"><input value={form.position_title} onChange={e=>setForm({...form,position_title:e.target.value})}/></Field>
+            <Field label="Fecha de ingreso"><input type="date" value={form.hire_date} onChange={e=>setForm({...form,hire_date:e.target.value})}/></Field>
+            <Field label="Fecha de retiro (opcional)"><input type="date" value={form.termination_date} onChange={e=>setForm({...form,termination_date:e.target.value})}/></Field>
+            <Field label="Salario base"><input type="number" value={form.salary} onChange={e=>setForm({...form,salary:e.target.value})}/></Field>
+            <Field label="Banco"><input value={form.bank_name} onChange={e=>setForm({...form,bank_name:e.target.value})}/></Field>
+            <Field label="Cuenta bancaria"><input value={form.bank_account} onChange={e=>setForm({...form,bank_account:e.target.value})}/></Field>
+            <Field label="Contacto de emergencia"><input value={form.emergency_contact} onChange={e=>setForm({...form,emergency_contact:e.target.value})}/></Field>
+            <Field label="Tel. emergencia"><input value={form.emergency_phone} onChange={e=>setForm({...form,emergency_phone:e.target.value})}/></Field>
+          </div>
+          <Field label="Notas"><textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:14}}>
+            <button className="btn primary" disabled={busy} onClick={guardar}>{busy&&<span className="spinner"/>}Registrar empleado</button>
+            <button className="btn ghost" onClick={()=>setShowForm(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* =====================================================================
+   EXPEDIENTE DEL EMPLEADO (con pestañas)
+   ===================================================================== */
+function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes, onBack}){
+  const [tab,setTab] = useState("personal");
+  const write = canWrite(profile.role,"employees");
+  const showSalary = profile.role!=="jefe_area" && profile.role!=="empleado" ? true : (profile.role==="empleado"); // jefe no ve salario
+
+  const emp = useAsync(async ()=>{
+    const { data, error } = await sb.from("employees").select("*").eq("id",employeeId).single();
+    if(error) throw error; return data;
+  }, [employeeId]);
+
+  if(emp.loading) return <div><button className="btn ghost sm" onClick={onBack}>← Volver</button><div style={{marginTop:14}}><SkeletonRows cols={3} rows={3}/></div></div>;
+  if(emp.error) return <div className="card"><button className="btn ghost sm" onClick={onBack}>← Volver</button><p><b>⚠️ {emp.error}</b></p></div>;
+  const e = emp.data;
+  const depName = (id)=>(departments.find(d=>d.id===id)||{}).name||"—";
+
+  const TABS = [
+    {id:"personal",label:"Personal"},
+    {id:"laboral",label:"Laboral"},
+    {id:"contratos",label:"Contratos"},
+    {id:"seguridad",label:"Seguridad social"},
+    {id:"vacaciones",label:"Vacaciones"},
+    {id:"incapacidades",label:"Incapacidades"},
+    {id:"documentos",label:"Documentos"},
+    {id:"auditoria",label:"Auditoría"},
+  ];
+
+  return (
+    <div>
+      <button className="btn ghost sm" onClick={onBack}>← Volver a empleados</button>
+      <div className="card" style={{margin:"14px 0 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div>
+          <h2 style={{fontSize:20}}>{e.first_name} {e.last_name}</h2>
+          <div className="kv" style={{marginTop:6}}>
+            <span>{e.document_type} <b>{e.document_number}</b></span>
+            <span>Cargo: <b>{e.position_title||"—"}</b></span>
+            <span>Área: <b>{depName(e.department_id)}</b></span>
+            <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
+          </div>
+        </div>
+        <Badge status={e.status}/>
+      </div>
+
+      <div className="tabs">
+        {TABS.map(t=><button key={t.id} className={tab===t.id?"active":""} onClick={()=>setTab(t.id)}>{t.label}</button>)}
+      </div>
+
+      {tab==="personal" && <TabPersonal e={e} showSalary={showSalary}/>}
+      {tab==="laboral" && <TabLaboral e={e} depName={depName} showSalary={showSalary}/>}
+      {tab==="contratos" && <TabContratos employeeId={e.id} profile={profile} departments={departments}/>}
+      {tab==="seguridad" && <TabSeguridad employeeId={e.id} profile={profile} ssEntities={ssEntities}/>}
+      {tab==="vacaciones" && <TabVacaciones emp={e} profile={profile}/>}
+      {tab==="incapacidades" && <TabIncapacidades employeeId={e.id} profile={profile}/>}
+      {tab==="documentos" && <TabDocumentos employeeId={e.id} profile={profile} docTypes={docTypes}/>}
+      {tab==="auditoria" && <TabAuditoria recordId={e.id}/>}
+    </div>
+  );
+}
+
+function Info({label,value}){ return <div><div className="muted" style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:".03em",fontWeight:600}}>{label}</div><div style={{marginTop:2,fontWeight:600}}>{value||"—"}</div></div>; }
+
+function TabPersonal({e, showSalary}){
+  return (
+    <div className="card">
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
+        <Info label="Nombres" value={e.first_name}/>
+        <Info label="Apellidos" value={e.last_name}/>
+        <Info label="Documento" value={`${e.document_type} ${e.document_number}`}/>
+        <Info label="Fecha de nacimiento" value={fmt(e.birth_date)}/>
+        <Info label="Género" value={e.gender}/>
+        <Info label="Correo" value={e.email}/>
+        <Info label="Teléfono" value={e.phone}/>
+        <Info label="Dirección" value={e.address}/>
+        <Info label="Ciudad" value={e.city}/>
+        <Info label="Contacto de emergencia" value={e.emergency_contact}/>
+        <Info label="Tel. emergencia" value={e.emergency_phone}/>
+        {showSalary && <Info label="Banco" value={e.bank_name}/>}
+        {showSalary && <Info label="Cuenta bancaria" value={e.bank_account}/>}
+      </div>
+      {e.notes && <p className="muted" style={{marginTop:14}}><b>Notas:</b> {e.notes}</p>}
+    </div>
+  );
+}
+function TabLaboral({e, depName, showSalary}){
+  return (
+    <div className="card">
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
+        <Info label="Cargo" value={e.position_title}/>
+        <Info label="Área" value={depName(e.department_id)}/>
+        <Info label="Fecha de ingreso" value={fmt(e.hire_date)}/>
+        <Info label="Fecha de retiro" value={fmt(e.termination_date)}/>
+        <Info label="Estado" value={EMP_STATUS[e.status]}/>
+        {showSalary && <Info label="Salario base" value={money(e.salary)}/>}
+      </div>
+      {!showSalary && <p className="muted" style={{marginTop:14,fontSize:12.5}}>ℹ️ Tu rol no tiene permitido ver información salarial.</p>}
+    </div>
+  );
+}
+
+/* ---------- Contratos + Otrosí ---------- */
+function TabContratos({employeeId, profile, departments}){
+  const write = canWrite(profile.role,"contracts");
+  const [showC,setShowC] = useState(false);
+  const [addFor,setAddFor] = useState(null); // contract id para nuevo otrosí
+  const toast = useToast();
+
+  const data = useAsync(async ()=>{
+    const { data:contracts, error } = await sb.from("contracts").select("*").eq("employee_id",employeeId).order("start_date",{ascending:false});
+    if(error) throw error;
+    const ids = (contracts||[]).map(c=>c.id);
+    let adds = [];
+    if(ids.length){ const r = await sb.from("contract_addendums").select("*").in("contract_id",ids).order("date",{ascending:false}); adds = r.data||[]; }
+    return { contracts:contracts||[], adds };
+  }, [employeeId]);
+
+  const emptyC = ()=>({ contract_number:"", type:"termino_indefinido", start_date:todayISO(), end_date:"", salary:"",
+    position_title:"", department_id:"", immediate_boss:"", schedule:"tiempo_completo", status:"vigente",
+    observations:"", signature_date:"", renewal_date:"", termination_reason:"" });
+  const [cf,setCf] = useState(emptyC());
+  const [busy,setBusy] = useState(false);
+
+  const saveContract = async ()=>{
+    if(!cf.contract_number.trim()){ toast("El número de contrato es obligatorio.","err"); return; }
+    setBusy(true);
+    try{
+      const p = {...cf, employee_id:employeeId, created_by:profile.id};
+      ["end_date","salary","department_id","signature_date","renewal_date"].forEach(k=>{ if(p[k]==="") p[k]=null; });
+      const { error } = await sb.from("contracts").insert(p);
+      if(error) throw error;
+      toast("Contrato registrado.","ok"); setShowC(false); setCf(emptyC()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+
+  const emptyA = ()=>({ addendum_number:"", type:"prorroga", date:todayISO(), description:"", change_detail:"", application_date:"" });
+  const [af,setAf] = useState(emptyA());
+  const saveAddendum = async ()=>{
+    if(!af.addendum_number.trim()){ toast("El número de otrosí es obligatorio.","err"); return; }
+    setBusy(true);
+    try{
+      const p = {...af, contract_id:addFor, created_by:profile.id};
+      if(p.application_date==="") p.application_date=null;
+      const { error } = await sb.from("contract_addendums").insert(p);
+      if(error) throw error;
+      toast("Otrosí registrado.","ok"); setAddFor(null); setAf(emptyA()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+
+  if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+
+  return (
+    <div>
+      {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setCf(emptyC());setShowC(true);}}>+ Nuevo contrato</button></div>}
+      {data.contracts.length===0 ? <Empty text="Este empleado no tiene contratos registrados."/> :
+        <div className="grid" style={{gap:12}}>
+          {data.contracts.map(c=>{
+            const adds = data.adds.filter(a=>a.contract_id===c.id);
+            const showSalary = profile.role!=="jefe_area";
+            return (
+              <div key={c.id} className="card">
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+                  <div>
+                    <b>Contrato {c.contract_number}</b> · {CONTRACT_TYPES[c.type]}
+                    <div className="kv" style={{marginTop:6}}>
+                      <span>Inicio: <b>{fmt(c.start_date)}</b></span>
+                      <span>Fin: <b>{fmt(c.end_date)}</b></span>
+                      <span>Cargo: <b>{c.position_title||"—"}</b></span>
+                      <span>Jornada: <b>{SCHEDULES[c.schedule]||"—"}</b></span>
+                      <span>Jefe: <b>{c.immediate_boss||"—"}</b></span>
+                      {showSalary && <span>Salario: <b>{money(c.salary)}</b></span>}
+                      <span>Firma: <b>{fmt(c.signature_date)}</b></span>
+                      <span>Renovación: <b>{fmt(c.renewal_date)}</b></span>
+                    </div>
+                    {c.observations && <p className="muted" style={{margin:"8px 0 0",fontSize:12.5}}>{c.observations}</p>}
+                    {c.termination_reason && <p className="muted" style={{margin:"4px 0 0",fontSize:12.5}}>Motivo terminación: <b>{c.termination_reason}</b></p>}
+                  </div>
+                  <Badge status={c.status}/>
+                </div>
+
+                <div style={{marginTop:12,borderTop:"1px solid var(--border)",paddingTop:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <b style={{fontSize:13}}>Otrosí / adendas ({adds.length})</b>
+                    {write && <button className="linkbtn" style={{color:"var(--sky)"}} onClick={()=>{setAf(emptyA());setAddFor(c.id);}}>+ Añadir otrosí</button>}
+                  </div>
+                  {adds.length===0 ? <p className="muted" style={{fontSize:12.5,margin:"6px 0 0"}}>Sin adendas.</p> :
+                    <div style={{marginTop:8,display:"grid",gap:6}}>
+                      {adds.map(a=>(
+                        <div key={a.id} style={{fontSize:12.5,padding:"8px 10px",background:"#F7FAFC",borderRadius:6}}>
+                          <b>Otrosí {a.addendum_number}</b> · {ADDENDUM_TYPES[a.type]} · {fmt(a.date)}
+                          {a.description && <span> — {a.description}</span>}
+                          {a.change_detail && <div className="muted">Cambio: {a.change_detail}{a.application_date?` (aplica ${fmt(a.application_date)})`:""}</div>}
+                        </div>
+                      ))}
+                    </div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>}
+
+      {showC && (
+        <Modal title="Nuevo contrato" onClose={()=>setShowC(false)} wide>
+          <div className="grid form-grid">
+            <Field label="Número de contrato"><input value={cf.contract_number} onChange={e=>setCf({...cf,contract_number:e.target.value})}/></Field>
+            <Field label="Tipo"><select value={cf.type} onChange={e=>setCf({...cf,type:e.target.value})}>{opts(CONTRACT_TYPES)}</select></Field>
+            <Field label="Fecha inicio"><input type="date" value={cf.start_date} onChange={e=>setCf({...cf,start_date:e.target.value})}/></Field>
+            <Field label="Fecha terminación"><input type="date" value={cf.end_date} onChange={e=>setCf({...cf,end_date:e.target.value})}/></Field>
+            <Field label="Salario"><input type="number" value={cf.salary} onChange={e=>setCf({...cf,salary:e.target.value})}/></Field>
+            <Field label="Cargo"><input value={cf.position_title} onChange={e=>setCf({...cf,position_title:e.target.value})}/></Field>
+            <Field label="Área"><select value={cf.department_id} onChange={e=>setCf({...cf,department_id:e.target.value})}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+            <Field label="Jefe inmediato"><input value={cf.immediate_boss} onChange={e=>setCf({...cf,immediate_boss:e.target.value})}/></Field>
+            <Field label="Jornada"><select value={cf.schedule} onChange={e=>setCf({...cf,schedule:e.target.value})}>{opts(SCHEDULES)}</select></Field>
+            <Field label="Estado"><select value={cf.status} onChange={e=>setCf({...cf,status:e.target.value})}>{opts(CONTRACT_STATUS)}</select></Field>
+            <Field label="Fecha de firma"><input type="date" value={cf.signature_date} onChange={e=>setCf({...cf,signature_date:e.target.value})}/></Field>
+            <Field label="Fecha de renovación"><input type="date" value={cf.renewal_date} onChange={e=>setCf({...cf,renewal_date:e.target.value})}/></Field>
+          </div>
+          <Field label="Motivo de terminación (si aplica)"><input value={cf.termination_reason} onChange={e=>setCf({...cf,termination_reason:e.target.value})}/></Field>
+          <Field label="Observaciones"><textarea value={cf.observations} onChange={e=>setCf({...cf,observations:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:14}}>
+            <button className="btn primary" disabled={busy} onClick={saveContract}>{busy&&<span className="spinner"/>}Guardar contrato</button>
+            <button className="btn ghost" onClick={()=>setShowC(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+
+      {addFor && (
+        <Modal title="Nuevo otrosí" onClose={()=>setAddFor(null)}>
+          <div className="grid form-grid">
+            <Field label="Número de otrosí"><input value={af.addendum_number} onChange={e=>setAf({...af,addendum_number:e.target.value})}/></Field>
+            <Field label="Tipo"><select value={af.type} onChange={e=>setAf({...af,type:e.target.value})}>{opts(ADDENDUM_TYPES)}</select></Field>
+            <Field label="Fecha"><input type="date" value={af.date} onChange={e=>setAf({...af,date:e.target.value})}/></Field>
+            <Field label="Fecha de aplicación"><input type="date" value={af.application_date} onChange={e=>setAf({...af,application_date:e.target.value})}/></Field>
+          </div>
+          <Field label="Descripción"><textarea value={af.description} onChange={e=>setAf({...af,description:e.target.value})}/></Field>
+          <Field label="Cambio realizado"><textarea value={af.change_detail} onChange={e=>setAf({...af,change_detail:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:14}}>
+            <button className="btn primary" disabled={busy} onClick={saveAddendum}>{busy&&<span className="spinner"/>}Guardar otrosí</button>
+            <button className="btn ghost" onClick={()=>setAddFor(null)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Seguridad social + Novedades ---------- */
+function TabSeguridad({employeeId, profile, ssEntities}){
+  const write = canWrite(profile.role,"social_security");
+  const [showF,setShowF] = useState(false);
+  const [showN,setShowN] = useState(false);
+  const toast = useToast();
+
+  const data = useAsync(async ()=>{
+    const [aff, nov] = await Promise.all([
+      sb.from("employee_social_security").select("*").eq("employee_id",employeeId),
+      sb.from("social_security_novelties").select("*").eq("employee_id",employeeId).order("date",{ascending:false}),
+    ]);
+    if(aff.error) throw aff.error;
+    return { aff:aff.data||[], nov:nov.data||[] };
+  }, [employeeId]);
+
+  const emptyF = ()=>({ kind:"eps", entity_id:"", affiliation_number:"", affiliation_date:"", status:"activa", withdrawal_date:"", risk_class:"", risk_level:"", observations:"" });
+  const [f,setF] = useState(emptyF());
+  const [busy,setBusy] = useState(false);
+  const saveAff = async ()=>{
+    setBusy(true);
+    try{
+      const ent = ssEntities.find(x=>x.id===f.entity_id);
+      const p = {...f, employee_id:employeeId, entity_name: ent?ent.name:null, created_by:profile.id};
+      ["entity_id","affiliation_date","withdrawal_date"].forEach(k=>{ if(p[k]==="") p[k]=null; });
+      // upsert por (employee_id, kind)
+      const { error } = await sb.from("employee_social_security").upsert(p, { onConflict:"employee_id,kind" });
+      if(error) throw error;
+      toast("Afiliación guardada.","ok"); setShowF(false); setF(emptyF()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+
+  const emptyN = ()=>({ type:"ingreso", date:todayISO(), application_date:"", description:"", status:"pendiente" });
+  const [n,setN] = useState(emptyN());
+  const saveNov = async ()=>{
+    setBusy(true);
+    try{
+      const p = {...n, employee_id:employeeId, created_by:profile.id};
+      if(p.application_date==="") p.application_date=null;
+      const { error } = await sb.from("social_security_novelties").insert(p);
+      if(error) throw error;
+      toast("Novedad registrada.","ok"); setShowN(false); setN(emptyN()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+
+  if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+
+  const byKind = (k)=> data.aff.find(a=>a.kind===k);
+  const entName = (a)=> a ? (a.entity_name || (ssEntities.find(x=>x.id===a.entity_id)||{}).name || "—") : "—";
+
+  return (
+    <div>
+      {write && <div style={{marginBottom:12,display:"flex",gap:10,flexWrap:"wrap"}}>
+        <button className="btn primary sm" onClick={()=>{setF(emptyF());setShowF(true);}}>+ Afiliación</button>
+        <button className="btn ghost sm" onClick={()=>{setN(emptyN());setShowN(true);}}>+ Novedad</button>
+      </div>}
+
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:16}}>
+        {Object.keys(SS_KINDS).map(k=>{
+          const a = byKind(k);
+          return (
+            <div key={k} className="card">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <b>{SS_KINDS[k]}</b>{a && <Badge status={a.status}/>}
+              </div>
+              {a ? <div className="kv" style={{marginTop:8,flexDirection:"column",gap:4}}>
+                    <span>Entidad: <b>{entName(a)}</b></span>
+                    <span>N° afiliación: <b>{a.affiliation_number||"—"}</b></span>
+                    <span>Afiliación: <b>{fmt(a.affiliation_date)}</b></span>
+                    {k==="arl" && <span>Riesgo: <b>{a.risk_class||"—"} / {a.risk_level||"—"}</b></span>}
+                    {a.withdrawal_date && <span>Retiro: <b>{fmt(a.withdrawal_date)}</b></span>}
+                  </div>
+                : <p className="muted" style={{fontSize:12.5,margin:"8px 0 0"}}>Sin información.</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      <h3 className="section-title" style={{fontSize:14}}>Novedades de seguridad social</h3>
+      {data.nov.length===0 ? <Empty text="No hay novedades registradas."/> :
+        <div className="table-wrap"><table>
+          <thead><tr><th>Tipo</th><th>Fecha</th><th>Aplicación</th><th>Descripción</th><th>Estado</th></tr></thead>
+          <tbody>{data.nov.map(x=>(
+            <tr key={x.id} style={{cursor:"default"}}>
+              <td>{NOVELTY_TYPES[x.type]}</td><td>{fmt(x.date)}</td><td>{fmt(x.application_date)}</td>
+              <td style={{whiteSpace:"normal"}}>{x.description||"—"}</td><td><Badge status={x.status}/></td>
+            </tr>
+          ))}</tbody>
+        </table></div>}
+
+      {showF && (
+        <Modal title="Afiliación de seguridad social" onClose={()=>setShowF(false)}>
+          <div className="grid form-grid">
+            <Field label="Tipo"><select value={f.kind} onChange={e=>setF({...f,kind:e.target.value,entity_id:""})}>{opts(SS_KINDS)}</select></Field>
+            <Field label="Entidad"><select value={f.entity_id} onChange={e=>setF({...f,entity_id:e.target.value})}><option value="">—</option>{ssEntities.filter(x=>x.kind===f.kind).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+            <Field label="N° de afiliación"><input value={f.affiliation_number} onChange={e=>setF({...f,affiliation_number:e.target.value})}/></Field>
+            <Field label="Fecha de afiliación"><input type="date" value={f.affiliation_date} onChange={e=>setF({...f,affiliation_date:e.target.value})}/></Field>
+            <Field label="Estado"><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{opts(SS_STATUS)}</select></Field>
+            <Field label="Fecha de retiro"><input type="date" value={f.withdrawal_date} onChange={e=>setF({...f,withdrawal_date:e.target.value})}/></Field>
+            {f.kind==="arl" && <Field label="Clase de riesgo"><input value={f.risk_class} onChange={e=>setF({...f,risk_class:e.target.value})} placeholder="I - V"/></Field>}
+            {f.kind==="arl" && <Field label="Nivel de riesgo"><input value={f.risk_level} onChange={e=>setF({...f,risk_level:e.target.value})}/></Field>}
+          </div>
+          <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
+          <p className="muted" style={{fontSize:12,margin:"8px 0"}}>Nota: guardar reemplaza la afiliación vigente de ese tipo (una activa por tipo).</p>
+          <div className="rowbtns" style={{marginTop:8}}>
+            <button className="btn primary" disabled={busy} onClick={saveAff}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn ghost" onClick={()=>setShowF(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+
+      {showN && (
+        <Modal title="Nueva novedad" onClose={()=>setShowN(false)}>
+          <div className="grid form-grid">
+            <Field label="Tipo"><select value={n.type} onChange={e=>setN({...n,type:e.target.value})}>{opts(NOVELTY_TYPES)}</select></Field>
+            <Field label="Fecha"><input type="date" value={n.date} onChange={e=>setN({...n,date:e.target.value})}/></Field>
+            <Field label="Fecha de aplicación"><input type="date" value={n.application_date} onChange={e=>setN({...n,application_date:e.target.value})}/></Field>
+            <Field label="Estado"><select value={n.status} onChange={e=>setN({...n,status:e.target.value})}>{opts(NOVELTY_STATUS)}</select></Field>
+          </div>
+          <Field label="Descripción"><textarea value={n.description} onChange={e=>setN({...n,description:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:8}}>
+            <button className="btn primary" disabled={busy} onClick={saveNov}>{busy&&<span className="spinner"/>}Guardar novedad</button>
+            <button className="btn ghost" onClick={()=>setShowN(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Vacaciones (por empleado) ---------- */
+function TabVacaciones({emp, profile}){
+  const write = canWrite(profile.role,"vacations");
+  const [show,setShow] = useState(false);
+  const toast = useToast();
+  const data = useAsync(async ()=>{
+    const { data, error } = await sb.from("vacations").select("*").eq("employee_id",emp.id).order("start_date",{ascending:false});
+    if(error) throw error; return data;
+  }, [emp.id]);
+
+  const empty = ()=>({ start_date:todayISO(), end_date:todayISO(), status:"aprobada", observations:"" });
+  const [f,setF] = useState(empty());
+  const [busy,setBusy] = useState(false);
+  const dias = daysBetween(f.start_date, f.end_date);
+
+  const save = async ()=>{
+    if(dias<=0){ toast("Rango de fechas inválido.","err"); return; }
+    setBusy(true);
+    try{
+      const p = { employee_id:emp.id, start_date:f.start_date, end_date:f.end_date, days:dias, status:f.status,
+        observations:f.observations||null, created_by:profile.id, approved_by: f.status==="aprobada"?profile.id:null };
+      const { error } = await sb.from("vacations").insert(p);
+      if(error) throw error;
+      toast("Vacaciones registradas.","ok"); setShow(false); setF(empty()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+  const del = async (id)=>{
+    if(!confirm("¿Eliminar este periodo de vacaciones?")) return;
+    const { error } = await sb.from("vacations").delete().eq("id",id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Registro eliminado.","ok"); data.reload();
+  };
+
+  if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+
+  const tomadas = data.data.filter(v=>v.status!=="rechazada").reduce((s,v)=>s+v.days,0);
+  const causadas = vacacionesCausadas(emp.hire_date, emp.termination_date);
+  const saldo = Math.round((causadas-tomadas)*10)/10;
+
+  return (
+    <div>
+      <div className="card" style={{marginBottom:12,display:"flex",gap:24,flexWrap:"wrap"}}>
+        <Info label="Días causados" value={causadas}/>
+        <Info label="Días tomados" value={tomadas}/>
+        <Info label="Saldo pendiente" value={saldo}/>
+      </div>
+      {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar vacaciones</button></div>}
+      {data.data.length===0 ? <Empty text="Sin periodos de vacaciones."/> :
+        <div className="table-wrap"><table>
+          <thead><tr><th>Inicio</th><th>Fin</th><th>Días</th><th>Estado</th><th></th></tr></thead>
+          <tbody>{data.data.map(v=>(
+            <tr key={v.id} style={{cursor:"default"}}>
+              <td>{fmt(v.start_date)}</td><td>{fmt(v.end_date)}</td><td>{v.days}</td><td><Badge status={v.status}/></td>
+              <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(v.id)}>Eliminar</button>}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>}
+
+      {show && (
+        <Modal title="Registrar vacaciones" onClose={()=>setShow(false)}>
+          <div className="grid form-grid">
+            <Field label="Inicio"><input type="date" value={f.start_date} onChange={e=>setF({...f,start_date:e.target.value})}/></Field>
+            <Field label="Fin"><input type="date" value={f.end_date} onChange={e=>setF({...f,end_date:e.target.value})}/></Field>
+            <Field label="Estado"><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{opts(VAC_STATUS)}</select></Field>
+          </div>
+          <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
+          <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:8}}>
+            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Incapacidades (por empleado) ---------- */
+function TabIncapacidades({employeeId, profile}){
+  const write = canWrite(profile.role,"disabilities");
+  const [show,setShow] = useState(false);
+  const toast = useToast();
+  const data = useAsync(async ()=>{
+    const { data, error } = await sb.from("disabilities").select("*").eq("employee_id",employeeId).order("start_date",{ascending:false});
+    if(error) throw error; return data;
+  }, [employeeId]);
+
+  const empty = ()=>({ type:"enfermedad_general", start_date:todayISO(), end_date:todayISO(), diagnosis:"", entity:"" });
+  const [f,setF] = useState(empty());
+  const [busy,setBusy] = useState(false);
+  const dias = daysBetween(f.start_date,f.end_date);
+
+  const save = async ()=>{
+    if(dias<=0){ toast("Rango de fechas inválido.","err"); return; }
+    setBusy(true);
+    try{
+      const p = { employee_id:employeeId, type:f.type, start_date:f.start_date, end_date:f.end_date, days:dias,
+        diagnosis:f.diagnosis||null, entity:f.entity||null, created_by:profile.id };
+      const { error } = await sb.from("disabilities").insert(p);
+      if(error) throw error;
+      toast("Incapacidad registrada.","ok"); setShow(false); setF(empty()); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+  const del = async (id)=>{
+    if(!confirm("¿Eliminar esta incapacidad?")) return;
+    const { error } = await sb.from("disabilities").delete().eq("id",id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Registro eliminado.","ok"); data.reload();
+  };
+
+  if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  const totalDias = data.data.reduce((s,d)=>s+d.days,0);
+
+  return (
+    <div>
+      <div className="card" style={{marginBottom:12,display:"flex",gap:24,flexWrap:"wrap"}}>
+        <Info label="Total incapacidades" value={data.data.length}/>
+        <Info label="Días acumulados" value={totalDias}/>
+      </div>
+      {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar incapacidad</button></div>}
+      {data.data.length===0 ? <Empty text="Sin incapacidades registradas."/> :
+        <div className="table-wrap"><table>
+          <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Entidad</th><th></th></tr></thead>
+          <tbody>{data.data.map(d=>(
+            <tr key={d.id} style={{cursor:"default"}}>
+              <td>{DIS_TYPES[d.type]}</td><td>{fmt(d.start_date)}</td><td>{fmt(d.end_date)}</td><td>{d.days}</td><td>{d.entity||"—"}</td>
+              <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(d.id)}>Eliminar</button>}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>}
+
+      {show && (
+        <Modal title="Registrar incapacidad" onClose={()=>setShow(false)}>
+          <div className="grid form-grid">
+            <Field label="Tipo"><select value={f.type} onChange={e=>setF({...f,type:e.target.value})}>{opts(DIS_TYPES)}</select></Field>
+            <Field label="Inicio"><input type="date" value={f.start_date} onChange={e=>setF({...f,start_date:e.target.value})}/></Field>
+            <Field label="Fin"><input type="date" value={f.end_date} onChange={e=>setF({...f,end_date:e.target.value})}/></Field>
+            <Field label="Entidad (EPS/ARL)"><input value={f.entity} onChange={e=>setF({...f,entity:e.target.value})}/></Field>
+          </div>
+          <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
+          <Field label="Diagnóstico / observaciones"><textarea value={f.diagnosis} onChange={e=>setF({...f,diagnosis:e.target.value})}/></Field>
+          <div className="rowbtns" style={{marginTop:8}}>
+            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Documentos ---------- */
+function TabDocumentos({employeeId, profile, docTypes}){
+  const write = canWrite(profile.role,"documents");
+  const toast = useToast();
+  const fileRef = useRef(null);
+  const [uploading,setUploading] = useState(false);
+  const [docType,setDocType] = useState("");
+
+  const data = useAsync(async ()=>{
+    const { data, error } = await sb.from("documents").select("*").eq("employee_id",employeeId).order("created_at",{ascending:false});
+    if(error) throw error; return data;
+  }, [employeeId]);
+
+  const upload = async (file)=>{
+    if(!file) return;
+    setUploading(true);
+    try{
+      const path = `${employeeId}/${Date.now()}_${file.name.replace(/[^\w.\-]/g,"_")}`;
+      const up = await sb.storage.from("documentos").upload(path, file, { upsert:false });
+      if(up.error) throw up.error;
+      const { error } = await sb.from("documents").insert({
+        employee_id:employeeId, document_type_id: docType||null, name:file.name, storage_path:path,
+        mime_type:file.type, size_bytes:file.size, uploaded_by:profile.id
+      });
+      if(error) throw error;
+      toast("Documento cargado.","ok"); data.reload();
+    }catch(e){ toast(friendlyError(e),"err"); }
+    finally{ setUploading(false); if(fileRef.current) fileRef.current.value=""; }
+  };
+
+  const download = async (doc)=>{
+    try{
+      const { data:signed, error } = await sb.storage.from("documentos").createSignedUrl(doc.storage_path, 120);
+      if(error) throw error;
+      // registrar auditoría de descarga
+      await sb.from("audit_logs").insert({ profile_id:profile.id, action:"DOWNLOAD", table_name:"documents", record_id:doc.id, description:"Descarga: "+doc.name }).then(()=>{}).catch(()=>{});
+      window.open(signed.signedUrl, "_blank");
+    }catch(e){ toast(friendlyError(e),"err"); }
+  };
+
+  if(data.loading) return <SkeletonRows cols={3} rows={3}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+
+  return (
+    <div>
+      {write && (
+        <div className="card" style={{marginBottom:12,display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap"}}>
+          <Field label="Tipo de documento"><select value={docType} onChange={e=>setDocType(e.target.value)}><option value="">— (opcional)</option>{docTypes.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
+          <div>
+            <input ref={fileRef} type="file" style={{display:"none"}} onChange={e=>upload(e.target.files[0])}/>
+            <button className="btn primary" disabled={uploading} onClick={()=>fileRef.current&&fileRef.current.click()}>{uploading&&<span className="spinner"/>}Subir documento</button>
+          </div>
+        </div>
+      )}
+      {data.data.length===0 ? <Empty text="Sin documentos cargados."/> :
+        <div className="table-wrap"><table>
+          <thead><tr><th>Nombre</th><th>Tipo MIME</th><th>Tamaño</th><th>Cargado</th><th></th></tr></thead>
+          <tbody>{data.data.map(d=>(
+            <tr key={d.id} style={{cursor:"default"}}>
+              <td>{d.name}</td><td>{d.mime_type||"—"}</td><td>{d.size_bytes?Math.round(d.size_bytes/1024)+" KB":"—"}</td><td>{fmtDateTime(d.created_at)}</td>
+              <td><button className="linkbtn" style={{color:"var(--sky)"}} onClick={()=>download(d)}>Descargar</button></td>
+            </tr>
+          ))}</tbody>
+        </table></div>}
+    </div>
+  );
+}
+
+/* ---------- Auditoría por registro ---------- */
+function TabAuditoria({recordId}){
+  const data = useAsync(async ()=>{
+    const { data, error } = await sb.from("audit_logs").select("*,profiles(full_name)").eq("record_id",recordId).order("created_at",{ascending:false}).limit(100);
+    if(error) throw error; return data;
+  }, [recordId]);
+  if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.data.length===0) return <Empty text="Sin eventos de auditoría visibles para tu rol."/>;
+  return (
+    <div className="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Tabla</th></tr></thead>
+      <tbody>{data.data.map(a=>(
+        <tr key={a.id} style={{cursor:"default"}}>
+          <td>{fmtDateTime(a.created_at)}</td><td>{a.profiles?a.profiles.full_name:"—"}</td><td>{a.action}</td><td>{a.table_name}</td>
+        </tr>
+      ))}</tbody>
+    </table></div>
+  );
+}
+
+/* =====================================================================
+   AUDITORÍA GLOBAL
+   ===================================================================== */
+function Auditoria(){
+  const [tabla,setTabla] = useState("");
+  const data = useAsync(async ()=>{
+    let q = sb.from("audit_logs").select("*,profiles(full_name)").order("created_at",{ascending:false}).limit(200);
+    if(tabla) q = q.eq("table_name",tabla);
+    const { data, error } = await q;
+    if(error) throw error; return data;
+  }, [tabla]);
+  return (
+    <div>
+      <h2 className="section-title">Historial de auditoría</h2>
+      <div style={{marginBottom:12}}>
+        <select style={{maxWidth:260}} value={tabla} onChange={e=>setTabla(e.target.value)}>
+          <option value="">Todas las tablas</option>
+          {["employees","contracts","contract_addendums","employee_social_security","social_security_novelties","vacations","disabilities","documents","profiles"].map(t=><option key={t}>{t}</option>)}
+        </select>
+      </div>
+      {data.loading ? <SkeletonRows cols={5} rows={6}/> :
+       data.error ? <div className="card"><b>⚠️ {data.error}</b></div> :
+       data.data.length===0 ? <Empty text="No hay eventos de auditoría."/> :
+       <div className="table-wrap"><table>
+        <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Tabla</th><th>Registro</th></tr></thead>
+        <tbody>{data.data.map(a=>(
+          <tr key={a.id} style={{cursor:"default"}}>
+            <td>{fmtDateTime(a.created_at)}</td><td>{a.profiles?a.profiles.full_name:"—"}</td><td>{a.action}</td><td>{a.table_name}</td><td style={{fontSize:11,color:"var(--muted)"}}>{a.record_id?a.record_id.slice(0,8):"—"}</td>
+          </tr>
+        ))}</tbody>
+      </table></div>}
+    </div>
+  );
+}
+
+/* =====================================================================
+   USUARIOS (solo administrador)
+   ===================================================================== */
+function Usuarios({profile, departments}){
+  const toast = useToast();
+  const data = useAsync(async ()=>{
+    const { data, error } = await sb.from("profiles").select("*,employees(first_name,last_name)").order("created_at",{ascending:false});
+    if(error) throw error; return data;
+  }, []);
+  const [emps,setEmps] = useState([]);
+  useEffect(()=>{ sb.from("employees").select("id,first_name,last_name").order("first_name").then(r=>setEmps(r.data||[])); },[]);
+
+  const patch = async (id, changes)=>{
+    const { error } = await sb.from("profiles").update(changes).eq("id",id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Usuario actualizado.","ok"); data.reload();
+  };
+
+  if(data.loading) return <SkeletonRows cols={5} rows={5}/>;
+  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+
+  return (
+    <div>
+      <h2 className="section-title">Usuarios y roles</h2>
+      <p className="muted" style={{fontSize:12.5,marginBottom:12}}>Los usuarios se crean en Supabase → Authentication. Aquí asignas su rol, área y el empleado vinculado.</p>
+      <div className="table-wrap"><table>
+        <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Área</th><th>Empleado vinculado</th><th>Activo</th></tr></thead>
+        <tbody>{data.data.map(u=>(
+          <tr key={u.id} style={{cursor:"default"}}>
+            <td>{u.full_name||"—"}</td>
+            <td>{u.email||"—"}</td>
+            <td>
+              <select value={u.role} disabled={u.id===profile.id} onChange={e=>patch(u.id,{role:e.target.value})}>{opts(ROLE_LABELS)}</select>
+            </td>
+            <td><select value={u.department_id||""} onChange={e=>patch(u.id,{department_id:e.target.value||null})}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></td>
+            <td><select value={u.employee_id||""} onChange={e=>patch(u.id,{employee_id:e.target.value||null})}><option value="">—</option>{emps.map(x=><option key={x.id} value={x.id}>{x.first_name} {x.last_name}</option>)}</select></td>
+            <td><input type="checkbox" style={{width:"auto"}} checked={u.active} onChange={e=>patch(u.id,{active:e.target.checked})}/></td>
+          </tr>
+        ))}</tbody>
+      </table></div>
+    </div>
+  );
+}
+
+/* =====================================================================
+   APP PRINCIPAL (post-login)
+   ===================================================================== */
+function Workspace({session, profile, onSignOut}){
+  const [view,setView] = useState("dashboard"); // dashboard | empleados | auditoria | usuarios
+  const [empId,setEmpId] = useState(null);
+  const [departments,setDepartments] = useState([]);
+  const [ssEntities,setSsEntities] = useState([]);
+  const [docTypes,setDocTypes] = useState([]);
+  const [menuOpen,setMenuOpen] = useState(false);
+
+  useEffect(()=>{
+    (async ()=>{
+      const [d,s,t] = await Promise.all([
+        sb.from("departments").select("id,name").order("name"),
+        sb.from("social_security_entities").select("id,kind,name").eq("active",true).order("name"),
+        sb.from("document_types").select("id,name").order("name"),
+      ]);
+      setDepartments(d.data||[]); setSsEntities(s.data||[]); setDocTypes(t.data||[]);
+    })();
+  }, []);
+
+  const openEmployee = (id)=>{ setEmpId(id); setView("empleados"); setMenuOpen(false); };
+  const go = (v)=>{ setView(v); setEmpId(null); setMenuOpen(false); };
+
+  const NAV = [
+    {id:"dashboard", label:"Resumen", ico:"▣", show:true},
+    {id:"empleados", label:"Empleados", ico:"👥", show:true},
+    {id:"auditoria", label:"Auditoría", ico:"📋", show:profile.role==="administrador"},
+    {id:"usuarios",  label:"Usuarios y roles", ico:"⚙", show:profile.role==="administrador"},
+  ].filter(n=>n.show);
+
+  return (
+    <div className="shell">
+      {menuOpen && <div className="backdrop" onClick={()=>setMenuOpen(false)}/>}
+      <aside className={"sidebar"+(menuOpen?" open":"")}>
+        <div className="brand">
+          <img src={LOGO_SRC} alt="logo"/>
+          <div><b>Centro Especializado<br/>de Urología</b><span>Talento Humano</span></div>
+        </div>
+        <nav className="nav">
+          {NAV.map(n=>(
+            <button key={n.id} className={view===n.id?"active":""} onClick={()=>go(n.id)}>
+              <span className="ico">{n.ico}</span>{n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="foot">
+          <div className="u">{profile.full_name||session.user.email}</div>
+          <div>{ROLE_LABELS[profile.role]}</div>
+          <button onClick={onSignOut}>Cerrar sesión</button>
+        </div>
+      </aside>
+
+      <div className="main">
+        <div className="topbar">
+          <button className="hamburger" onClick={()=>setMenuOpen(true)}>☰</button>
+          <GlobalSearch onOpenEmployee={openEmployee}/>
+          <span className="role-chip">{ROLE_LABELS[profile.role]}</span>
+        </div>
+        <div className="content">
+          {view==="dashboard" && <Dashboard profile={profile} onOpenEmployee={openEmployee}/>}
+          {view==="empleados" && !empId && <Empleados profile={profile} departments={departments} onOpenEmployee={openEmployee}/>}
+          {view==="empleados" && empId &&
+            <EmployeeProfile employeeId={empId} profile={profile} departments={departments}
+              ssEntities={ssEntities} docTypes={docTypes} onBack={()=>setEmpId(null)}/>}
+          {view==="auditoria" && <Auditoria/>}
+          {view==="usuarios" && <Usuarios profile={profile} departments={departments}/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =====================================================================
+   RAÍZ: maneja sesión, perfil y toasts
+   ===================================================================== */
+function Root(){
+  const [ready,setReady] = useState(false);
+  const [session,setSession] = useState(null);
+  const [profile,setProfile] = useState(null);
+  const [profileError,setProfileError] = useState(null);
+  const [toasts,setToasts] = useState([]);
+
+  const pushToast = useCallback((msg, kind="info")=>{
+    const id = Math.random().toString(36).slice(2);
+    setToasts(t=>[...t,{id,msg,kind}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)), 4200);
+  }, []);
+
+  const loadProfile = useCallback(async (uid)=>{
+    setProfileError(null);
+    const { data, error } = await sb.from("profiles").select("*").eq("id",uid).single();
+    if(error){ setProfileError(friendlyError(error)); setProfile(null); return; }
+    setProfile(data);
+  }, []);
+
+  useEffect(()=>{
+    let mounted = true;
+    sb.auth.getSession().then(async ({data})=>{
+      if(!mounted) return;
+      setSession(data.session);
+      if(data.session){ await loadProfile(data.session.user.id); }
+      setReady(true);
+    });
+    const { data:sub } = sb.auth.onAuthStateChange(async (event, sess)=>{
+      setSession(sess);
+      if(sess){ await loadProfile(sess.user.id); }
+      else { setProfile(null); }
+    });
+    return ()=>{ mounted=false; sub.subscription.unsubscribe(); };
+  }, [loadProfile]);
+
+  const signOut = async ()=>{
+    try{ await sb.from("audit_logs").insert({ profile_id:session.user.id, action:"LOGOUT", description:"Cierre de sesión" }); }catch(e){}
+    await sb.auth.signOut();
+  };
+
+  if(!ready) return <div style={{padding:40,color:"var(--muted)"}}><span className="spinner dark"/> Cargando…</div>;
+
+  let body;
+  if(!session){ body = <Auth/>; }
+  else if(profileError){
+    body = <div className="auth"><div className="box"><h1>⚠️ Perfil no disponible</h1>
+      <p className="sub">{profileError}</p>
+      <button className="btn ghost" style={{width:"100%"}} onClick={signOut}>Cerrar sesión</button></div></div>;
+  }
+  else if(!profile){ body = <div style={{padding:40,color:"var(--muted)"}}><span className="spinner dark"/> Cargando tu perfil…</div>; }
+  else if(profile.active===false){
+    body = <div className="auth"><div className="box"><h1>Cuenta inactiva</h1>
+      <p className="sub">Tu usuario está desactivado. Contacta al administrador.</p>
+      <button className="btn ghost" style={{width:"100%"}} onClick={signOut}>Cerrar sesión</button></div></div>;
+  }
+  else { body = <Workspace session={session} profile={profile} onSignOut={signOut}/>; }
+
+  return (
+    <ToastCtx.Provider value={pushToast}>
+      {body}
+      <Toasts items={toasts}/>
+    </ToastCtx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
+</script>
+</body>
+</html>
