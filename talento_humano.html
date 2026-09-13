@@ -7,143 +7,515 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ===================================================================
+     LIQUID GLASS · Sistema de diseño
+     Tokens → Fondo → Layout → Navegación → Superficies → Datos
+              → Formularios → Botones → Feedback → Responsive
+     =================================================================== */
   :root{
-    --navy:#0F2749; --navy-soft:#233C5C; --sky:#2E9FD6; --sky-soft:#E4F3FA;
-    --paper:#F3F7FA; --card:#FFFFFF; --border:#D9E3EC; --border-input:#C6D6E2;
-    --muted:#5B6B7A; --green:#3F8F5F; --green-bg:#E7F3EC; --red:#B8483F; --red-bg:#FBEAE8;
-    --amber:#C07A16; --amber-bg:#FBF0DD;
+    /* --- Marca corporativa --- */
+    --navy:#0B2545;   --navy-2:#14375F;  --navy-3:#1E4C7A;  --navy-soft:#233C5C;
+    --sky:#2E9FD6;    --sky-2:#5BC0E8;   --teal:#16A99B;
+    --ink:#0F2035;    --ink-2:#33465E;   --muted:#66788D;
+
+    /* --- Semánticos --- */
+    --green:#158A5B;  --green-2:#28B476;
+    --red:#C0453C;    --red-2:#E0685E;
+    --amber:#B0731A;  --amber-2:#E0A537;
+
+    /* --- Vidrio líquido --- */
+    --g-1:rgba(255,255,255,.74);
+    --g-2:rgba(255,255,255,.55);
+    --g-3:rgba(255,255,255,.34);
+    --g-brd:rgba(255,255,255,.65);
+    --g-hi:inset 0 1px 0 rgba(255,255,255,.8);
+    --blur:20px;
+
+    /* --- Sombras --- */
+    --sh-1:0 1px 2px rgba(11,37,69,.05), 0 4px 14px rgba(11,37,69,.06);
+    --sh-2:0 2px 6px rgba(11,37,69,.06), 0 14px 34px rgba(11,37,69,.10);
+    --sh-3:0 30px 70px rgba(11,37,69,.24);
+    --ring:0 0 0 4px rgba(46,159,214,.22);
+
+    /* --- Forma y ritmo --- */
+    --r-s:10px; --r-m:16px; --r-l:22px; --r-pill:999px;
+    --ease:cubic-bezier(.22,.61,.36,1); --fast:.16s; --mid:.28s;
+
+    /* --- Alias de compatibilidad (usados en estilos en línea del JSX) --- */
+    --paper:#EDF2F9; --card:var(--g-1);
+    --border:rgba(15,32,53,.09); --border-input:rgba(15,32,53,.13);
+    --sky-soft:rgba(46,159,214,.12); --green-bg:rgba(21,138,91,.11);
+    --red-bg:rgba(192,69,60,.11);    --amber-bg:rgba(176,115,26,.13);
   }
+
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
-  body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--navy);-webkit-font-smoothing:antialiased}
-  h1,h2,h3{font-family:'Roboto Slab',serif;margin:0}
+  body{
+    font-family:'Inter',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 620px at 6% -8%,  rgba(46,159,214,.26), transparent 62%),
+      radial-gradient(900px 520px at 98% 2%,   rgba(22,169,155,.20), transparent 58%),
+      radial-gradient(1000px 700px at 48% 112%,rgba(20,55,95,.22),   transparent 62%),
+      linear-gradient(158deg,#E7EFF8 0%,#F4F8FC 46%,#E6EEF7 100%);
+    background-attachment:fixed;
+  }
+  /* Burbujas de luz en movimiento muy lento (decorativas) */
+  body::before,body::after{
+    content:"";position:fixed;z-index:-1;border-radius:50%;pointer-events:none;
+    filter:blur(70px);opacity:.5;
+  }
+  body::before{width:46vmax;height:46vmax;left:-14vmax;top:-12vmax;
+    background:radial-gradient(circle at 30% 30%,rgba(91,192,232,.55),transparent 68%);
+    animation:float1 26s var(--ease) infinite alternate}
+  body::after{width:40vmax;height:40vmax;right:-12vmax;bottom:-14vmax;
+    background:radial-gradient(circle at 70% 70%,rgba(22,169,155,.42),transparent 68%);
+    animation:float2 32s var(--ease) infinite alternate}
+  @keyframes float1{to{transform:translate3d(6vmax,4vmax,0) scale(1.12)}}
+  @keyframes float2{to{transform:translate3d(-5vmax,-4vmax,0) scale(1.08)}}
+
+  h1,h2,h3{font-family:'Roboto Slab',serif;margin:0;letter-spacing:-.01em}
   a{color:var(--sky)}
-  #root{min-height:100vh}
+  #root{min-height:100vh;position:relative;z-index:1}
+  ::selection{background:rgba(46,159,214,.25)}
+
+  /* Scrollbars discretas */
+  *{scrollbar-width:thin;scrollbar-color:rgba(15,32,53,.22) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(15,32,53,.18);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(15,32,53,.3);background-clip:content-box}
+
+  /* Utilidad base de vidrio */
+  .glass{
+    background:linear-gradient(158deg,var(--g-1),var(--g-2));
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(165%);
+    backdrop-filter:blur(var(--blur)) saturate(165%);
+    border:1px solid var(--g-brd);
+    box-shadow:var(--sh-2),var(--g-hi);
+  }
 
   /* ---- Layout ---- */
-  .shell{display:flex;min-height:100vh}
-  .sidebar{width:236px;background:var(--navy);color:#DCE6F0;display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh}
-  .brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
-  .brand img{width:40px;height:40px;border-radius:50%;background:#fff;object-fit:contain;flex-shrink:0}
-  .brand b{font-family:'Roboto Slab',serif;font-size:14px;color:#fff;line-height:1.15}
-  .brand span{font-size:11px;color:var(--sky)}
-  .nav{flex:1;overflow-y:auto;padding:8px}
-  .nav button{width:100%;text-align:left;background:transparent;border:none;color:#9FB3C4;font-family:'Inter',sans-serif;
-    font-size:13.5px;font-weight:600;padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center}
-  .nav button:hover{background:rgba(255,255,255,.06);color:#fff}
-  .nav button.active{background:var(--sky);color:#fff}
-  .nav .ico{width:18px;text-align:center}
-  .sidebar .foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:#8AA0B4}
-  .sidebar .foot .u{color:#fff;font-weight:700}
-  .sidebar .foot button{margin-top:8px;background:transparent;border:1px solid rgba(255,255,255,.18);color:#DCE6F0;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;width:100%}
+  .shell{display:flex;min-height:100vh;gap:0}
+  .sidebar{
+    width:256px;flex-shrink:0;position:sticky;top:0;height:100vh;
+    display:flex;flex-direction:column;padding:14px 12px;gap:12px;color:var(--ink-2);
+    background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,255,255,.5));
+    -webkit-backdrop-filter:blur(24px) saturate(170%);
+    backdrop-filter:blur(24px) saturate(170%);
+    border-right:1px solid var(--g-brd);
+    box-shadow:1px 0 0 rgba(255,255,255,.5) inset, var(--sh-1);
+  }
+  .brand{display:flex;align-items:center;gap:11px;padding:8px 8px 14px;border-bottom:1px solid rgba(15,32,53,.07)}
+  .brand img{width:42px;height:42px;border-radius:14px;object-fit:contain;flex-shrink:0;
+    background:linear-gradient(145deg,#fff,rgba(255,255,255,.6));padding:3px;
+    box-shadow:0 4px 14px rgba(11,37,69,.16),var(--g-hi)}
+  .brand b{font-family:'Roboto Slab',serif;font-size:13.5px;color:var(--navy);line-height:1.18;display:block}
+  .brand span{font-size:10.5px;color:var(--sky);font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+
+  .nav{flex:1;overflow-y:auto;padding:4px 2px;display:flex;flex-direction:column;gap:3px}
+  .nav .nav-label{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);padding:14px 12px 6px;opacity:.75}
+  .nav button{
+    position:relative;width:100%;text-align:left;background:transparent;border:1px solid transparent;
+    color:var(--ink-2);font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;
+    padding:9px 12px;border-radius:13px;cursor:pointer;display:flex;gap:11px;align-items:center;
+    transition:background var(--fast),color var(--fast),transform var(--fast) var(--ease),box-shadow var(--fast),border-color var(--fast);
+  }
+  .nav button::before{
+    content:"";position:absolute;left:5px;top:50%;width:3px;height:0;border-radius:99px;
+    background:linear-gradient(180deg,var(--sky),var(--teal));transform:translateY(-50%);
+    transition:height var(--mid) var(--ease);
+  }
+  .nav button:hover{background:rgba(255,255,255,.7);color:var(--navy);transform:translateX(2px);box-shadow:var(--sh-1)}
+  .nav button:focus-visible{outline:none;box-shadow:var(--ring)}
+  .nav button.active{
+    background:linear-gradient(135deg,rgba(46,159,214,.18),rgba(22,169,155,.13));
+    color:var(--navy);border-color:rgba(46,159,214,.3);box-shadow:var(--sh-1),var(--g-hi);
+  }
+  .nav button.active::before{height:18px}
+  .nav button.active .ico{background:linear-gradient(145deg,var(--sky),var(--teal));color:#fff;box-shadow:0 5px 14px rgba(46,159,214,.4)}
+  .nav button:disabled{opacity:.42;cursor:not-allowed;transform:none;background:transparent;box-shadow:none}
+  .nav .ico{
+    width:30px;height:30px;flex-shrink:0;border-radius:10px;display:grid;place-items:center;
+    background:rgba(255,255,255,.72);color:var(--navy-3);box-shadow:var(--sh-1),var(--g-hi);
+    transition:background var(--fast),color var(--fast),box-shadow var(--fast);
+  }
+  .nav .ico svg{width:16px;height:16px}
+
+  .sidebar .foot{padding:12px;border-radius:var(--r-m);font-size:11.5px;color:var(--muted);
+    background:rgba(255,255,255,.55);border:1px solid var(--g-brd);box-shadow:var(--g-hi)}
+  .sidebar .foot .u{color:var(--navy);font-weight:700;font-size:12.5px}
+  .sidebar .foot button{
+    margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+    background:rgba(255,255,255,.7);border:1px solid var(--border-input);color:var(--ink-2);
+    border-radius:11px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;
+    font-family:'Inter',sans-serif;transition:all var(--fast) var(--ease);
+  }
+  .sidebar .foot button:hover{background:#fff;color:var(--red);border-color:rgba(192,69,60,.35);transform:translateY(-1px);box-shadow:var(--sh-1)}
+  .sidebar .foot button:active{transform:translateY(0) scale(.99)}
+  .sidebar .foot button:focus-visible{outline:none;box-shadow:var(--ring)}
+  .sidebar .foot button svg{width:14px;height:14px}
+
+  .avatar{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;flex-shrink:0;
+    background:linear-gradient(145deg,var(--navy-3),var(--navy));color:#fff;
+    font-weight:800;font-size:12.5px;box-shadow:0 5px 14px rgba(11,37,69,.28),var(--g-hi)}
 
   .main{flex:1;min-width:0;display:flex;flex-direction:column}
-  .topbar{background:#fff;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;gap:14px;align-items:center;position:sticky;top:0;z-index:20}
-  .topbar .search{flex:1;max-width:520px;position:relative}
-  .topbar .search input{width:100%}
-  .topbar .role-chip{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sky);background:var(--sky-soft);padding:5px 10px;border-radius:999px}
-  .hamburger{display:none;background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:16px;cursor:pointer;color:var(--navy)}
-  .content{padding:20px;max-width:1180px;width:100%;margin:0 auto}
+  .topbar{
+    padding:11px 22px;display:flex;gap:14px;align-items:center;position:sticky;top:0;z-index:20;
+    background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,.46));
+    -webkit-backdrop-filter:blur(22px) saturate(170%);
+    backdrop-filter:blur(22px) saturate(170%);
+    border-bottom:1px solid var(--g-brd);
+  }
+  .topbar .search{flex:1;max-width:520px;position:relative;display:flex;align-items:center}
+  .topbar .search input{width:100%;padding-left:38px}
+  .search .s-ico{position:absolute;left:13px;width:16px;height:16px;color:var(--muted);pointer-events:none;z-index:1}
+  .breadcrumb{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .breadcrumb .bc-path{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .breadcrumb .bc-title{font-family:'Roboto Slab',serif;font-size:15px;font-weight:700;color:var(--navy);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+  .topbar .role-chip{
+    font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--navy-3);
+    background:linear-gradient(135deg,rgba(46,159,214,.16),rgba(22,169,155,.12));
+    padding:6px 12px;border-radius:var(--r-pill);border:1px solid rgba(46,159,214,.26);
+    white-space:nowrap;box-shadow:var(--g-hi)
+  }
+  .hamburger{
+    display:none;background:rgba(255,255,255,.7);border:1px solid var(--g-brd);border-radius:12px;
+    padding:8px;cursor:pointer;color:var(--navy);box-shadow:var(--sh-1);transition:all var(--fast) var(--ease)
+  }
+  .hamburger:hover{background:#fff;transform:translateY(-1px)}
+  .hamburger:active{transform:scale(.96)}
+  .hamburger:focus-visible{outline:none;box-shadow:var(--ring)}
+  .hamburger svg{width:18px;height:18px;display:block}
+  .content{padding:24px 22px 40px;max-width:1240px;width:100%;margin:0 auto;animation:fadeUp .4s var(--ease) both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-  /* ---- Cards / grid ---- */
-  .card{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:16px 18px}
-  .grid{display:grid;gap:12px}
-  .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-  .stat .n{font-family:'Roboto Slab',serif;font-size:28px;font-weight:700;margin:4px 0 0}
-  .stat .l{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  .form-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  /* Aviso de modo desarrollo (permisos de UI desbloqueados) */
+  .dev-banner{
+    display:flex;align-items:center;gap:10px;padding:9px 22px;font-size:12px;font-weight:600;
+    color:#7A4E0E;background:linear-gradient(135deg,rgba(224,165,55,.28),rgba(224,165,55,.14));
+    border-bottom:1px solid rgba(176,115,26,.3);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)
+  }
+  .dev-banner svg{width:16px;height:16px;flex-shrink:0}
+  .dev-banner code{background:rgba(255,255,255,.6);padding:1px 6px;border-radius:6px;font-size:11.5px}
 
-  /* ---- Forms ---- */
-  label.f{display:flex;flex-direction:column;gap:5px;font-size:13px}
-  label.f>span{color:var(--muted);font-weight:600}
-  input,select,textarea{border:1.5px solid var(--border-input);border-radius:6px;padding:9px 10px;font-size:14px;
-    font-family:'Inter',sans-serif;background:#FCFDFE;color:var(--navy);outline:none;width:100%}
-  input:focus,select:focus,textarea:focus{border-color:var(--sky)}
-  textarea{min-height:64px;resize:vertical}
+  /* ---- Superficies ---- */
+  .card{
+    background:linear-gradient(158deg,var(--g-1),var(--g-2));
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(165%);
+    backdrop-filter:blur(var(--blur)) saturate(165%);
+    border:1px solid var(--g-brd);border-radius:var(--r-m);padding:18px 20px;
+    box-shadow:var(--sh-2),var(--g-hi);
+    transition:transform var(--mid) var(--ease),box-shadow var(--mid),border-color var(--mid);
+  }
+  /* Tarjeta interactiva: elevación sutil al pasar el mouse */
+  .card.int{cursor:pointer}
+  .card.int:hover{transform:translateY(-3px);box-shadow:var(--sh-3),var(--g-hi);border-color:rgba(46,159,214,.32)}
+  .card.int:active{transform:translateY(-1px) scale(.995)}
+  .grid{display:grid;gap:14px}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(196px,1fr))}
+  .form-grid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
 
-  .btn{border:none;border-radius:6px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
-  .btn.primary{background:var(--navy);color:#F3F7FA}
-  .btn.primary:hover{background:var(--navy-soft)}
-  .btn.ghost{background:transparent;color:var(--navy);border:1.5px solid var(--border-input);font-weight:600}
-  .btn.danger{background:var(--red);color:#fff}
-  .btn:disabled{opacity:.55;cursor:not-allowed}
-  .btn.sm{padding:6px 12px;font-size:12px}
-  .linkbtn{background:none;border:none;cursor:pointer;font-weight:700;font-size:12.5px;font-family:'Inter',sans-serif;padding:0}
+  /* KPI estilo Argon: etiqueta + cifra + icono en mosaico */
+  .stat{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;position:relative;overflow:hidden}
+  .stat::after{content:"";position:absolute;inset:auto -30% -60% auto;width:150px;height:150px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,255,255,.5),transparent 70%);pointer-events:none}
+  .stat:hover{transform:translateY(-3px);box-shadow:var(--sh-3),var(--g-hi)}
+  .stat .l{font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em;line-height:1.35}
+  .stat .n{font-family:'Roboto Slab',serif;font-size:30px;font-weight:700;margin:6px 0 0;line-height:1.05}
+  .stat .kpi-ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex-shrink:0;color:#fff;
+    box-shadow:0 8px 20px rgba(11,37,69,.22),var(--g-hi)}
+  .stat .kpi-ico svg{width:20px;height:20px}
+  .ico-navy{background:linear-gradient(145deg,var(--navy-3),var(--navy))}
+  .ico-sky{background:linear-gradient(145deg,var(--sky-2),var(--sky))}
+  .ico-green{background:linear-gradient(145deg,var(--green-2),var(--green))}
+  .ico-red{background:linear-gradient(145deg,var(--red-2),var(--red))}
+  .ico-amber{background:linear-gradient(145deg,var(--amber-2),var(--amber))}
+  .ico-teal{background:linear-gradient(145deg,#3FD0C0,var(--teal))}
+
+  .page-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .section-title{font-size:16px;margin-bottom:14px;color:var(--navy)}
+
+  /* ---- Formularios ---- */
+  label.f{display:flex;flex-direction:column;gap:6px;font-size:13px}
+  label.f>span{color:var(--muted);font-weight:700;font-size:11.5px;letter-spacing:.02em}
+  input,select,textarea{
+    border:1px solid var(--border-input);border-radius:12px;padding:10px 12px;font-size:13.5px;
+    font-family:'Inter',sans-serif;color:var(--ink);outline:none;width:100%;
+    background:rgba(255,255,255,.62);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:var(--g-hi);
+    transition:border-color var(--fast),box-shadow var(--fast),background var(--fast);
+  }
+  input::placeholder,textarea::placeholder{color:rgba(102,120,141,.75)}
+  input:hover,select:hover,textarea:hover{background:rgba(255,255,255,.78)}
+  input:focus,select:focus,textarea:focus{background:rgba(255,255,255,.92);border-color:var(--sky);box-shadow:var(--ring),var(--g-hi)}
+  input:disabled,select:disabled,textarea:disabled{opacity:.55;cursor:not-allowed;background:rgba(255,255,255,.4)}
+  textarea{min-height:70px;resize:vertical;line-height:1.5}
+  select{appearance:none;-webkit-appearance:none;padding-right:34px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2366788D' stroke-width='2.4' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 11px center;background-size:15px}
+  input[type=checkbox]{width:auto;accent-color:var(--sky);cursor:pointer;box-shadow:none;padding:0}
+  input[type=date]{min-height:41px}
+  input[type=file]{padding:8px}
+
+  /* ---- Botones ---- */
+  .btn{
+    position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border:1px solid transparent;border-radius:13px;padding:11px 18px;font-size:13px;font-weight:700;
+    cursor:pointer;font-family:'Inter',sans-serif;letter-spacing:.01em;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform var(--fast) var(--ease),box-shadow var(--mid),background var(--mid),
+               border-color var(--mid),color var(--mid),filter var(--mid);
+  }
+  .btn svg{width:15px;height:15px;flex-shrink:0}
+  /* destello de vidrio al pasar el mouse */
+  .btn::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent 28%,rgba(255,255,255,.38) 50%,transparent 72%);
+    transform:translateX(-130%);transition:transform .65s var(--ease);
+  }
+  .btn:hover::after{transform:translateX(130%)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn:active{transform:translateY(0) scale(.982)}
+  .btn:focus-visible{outline:none;box-shadow:var(--ring),var(--sh-2)}
+  /* Deshabilitado: se distingue por opacidad, desaturación y sin elevación.
+     No se usa pointer-events:none para que el `title` explicativo siga visible. */
+  .btn:disabled{
+    opacity:.5;cursor:not-allowed;transform:none;filter:grayscale(.35);box-shadow:none;
+  }
+  .btn:disabled:hover{transform:none;box-shadow:none}
+  .btn:disabled::after{display:none}
+  .btn.primary{background:linear-gradient(135deg,var(--navy-3),var(--navy));color:#F2F8FF;
+    box-shadow:0 6px 18px rgba(11,37,69,.26),var(--g-hi)}
+  .btn.primary:hover{box-shadow:0 14px 30px rgba(11,37,69,.32),var(--g-hi)}
+  .btn.accent{background:linear-gradient(135deg,var(--sky-2),var(--sky) 55%,var(--teal));color:#fff;
+    box-shadow:0 6px 18px rgba(46,159,214,.34),var(--g-hi)}
+  .btn.accent:hover{box-shadow:0 14px 30px rgba(46,159,214,.4),var(--g-hi)}
+  .btn.ghost{
+    background:rgba(255,255,255,.6);color:var(--navy);border-color:var(--g-brd);font-weight:700;
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:var(--sh-1),var(--g-hi)
+  }
+  .btn.ghost:hover{background:rgba(255,255,255,.92);border-color:rgba(46,159,214,.4);color:var(--navy-3);box-shadow:var(--sh-2),var(--g-hi)}
+  .btn.danger{background:linear-gradient(135deg,var(--red-2),var(--red));color:#fff;
+    box-shadow:0 6px 18px rgba(192,69,60,.3),var(--g-hi)}
+  .btn.danger:hover{box-shadow:0 14px 30px rgba(192,69,60,.36),var(--g-hi)}
+  .btn.sm{padding:7px 13px;font-size:12px;border-radius:11px;gap:6px}
+  .btn.sm svg{width:13px;height:13px}
+  .btn.block{width:100%}
+  .linkbtn{
+    background:none;border:none;cursor:pointer;font-weight:700;font-size:12.5px;font-family:'Inter',sans-serif;
+    padding:2px 0;border-radius:6px;transition:opacity var(--fast),transform var(--fast) var(--ease);
+    border-bottom:1.5px solid transparent
+  }
+  .linkbtn:hover{opacity:.78;border-bottom-color:currentColor}
+  .linkbtn:active{transform:scale(.97)}
+  .linkbtn:focus-visible{outline:none;box-shadow:var(--ring)}
+  .linkbtn:disabled{opacity:.45;cursor:not-allowed;border-bottom-color:transparent}
 
   /* ---- Badges ---- */
-  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;padding:4px 10px;border-radius:999px;border:1.5px solid}
-  .badge .dot{width:6px;height:6px;border-radius:50%}
-  .b-green{color:#2A6B44;background:var(--green-bg);border-color:var(--green)}
-  .b-green .dot{background:var(--green)}
-  .b-red{color:#8A342C;background:var(--red-bg);border-color:var(--red)}
-  .b-red .dot{background:var(--red)}
-  .b-amber{color:#7A4E0E;background:var(--amber-bg);border-color:var(--amber)}
-  .b-amber .dot{background:var(--amber)}
-  .b-sky{color:#1B5A7A;background:var(--sky-soft);border-color:var(--sky)}
-  .b-sky .dot{background:var(--sky)}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;font-weight:800;padding:5px 11px;border-radius:var(--r-pill);
+    border:1px solid;white-space:nowrap;box-shadow:var(--g-hi);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)
+  }
+  .badge .dot{width:6px;height:6px;border-radius:50%;box-shadow:0 0 0 3px currentColor;opacity:.95}
+  .b-green{color:#12734D;background:var(--green-bg);border-color:rgba(21,138,91,.34)}
+  .b-green .dot{background:var(--green);box-shadow:0 0 0 3px rgba(21,138,91,.18)}
+  .b-red{color:#9B342C;background:var(--red-bg);border-color:rgba(192,69,60,.34)}
+  .b-red .dot{background:var(--red);box-shadow:0 0 0 3px rgba(192,69,60,.18)}
+  .b-amber{color:#8A5A12;background:var(--amber-bg);border-color:rgba(176,115,26,.34)}
+  .b-amber .dot{background:var(--amber);box-shadow:0 0 0 3px rgba(176,115,26,.18)}
+  .b-sky{color:#175F84;background:var(--sky-soft);border-color:rgba(46,159,214,.34)}
+  .b-sky .dot{background:var(--sky);box-shadow:0 0 0 3px rgba(46,159,214,.18)}
 
-  /* ---- Tables ---- */
-  .table-wrap{overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;background:#fff}
+  /* ---- Tablas ---- */
+  .table-wrap{
+    overflow-x:auto;border:1px solid var(--g-brd);border-radius:var(--r-m);
+    background:linear-gradient(158deg,var(--g-1),var(--g-2));
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(165%);
+    backdrop-filter:blur(var(--blur)) saturate(165%);
+    box-shadow:var(--sh-2),var(--g-hi);
+  }
   table{border-collapse:collapse;width:100%;font-size:13px}
-  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
-  th{background:#F7FAFC;color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}
-  tbody tr:hover{background:#F9FBFD;cursor:pointer}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid rgba(15,32,53,.07);white-space:nowrap}
+  th{background:rgba(255,255,255,.42);color:var(--muted);font-weight:800;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.08em}
+  td{color:var(--ink-2)}
+  td b{color:var(--navy)}
+  tbody tr{transition:background var(--fast),box-shadow var(--fast)}
+  tbody tr:hover{background:linear-gradient(90deg,rgba(46,159,214,.10),rgba(22,169,155,.05));cursor:pointer}
   tbody tr:last-child td{border-bottom:none}
 
-  /* ---- Alerts ---- */
-  .alert{border-radius:10px;padding:12px 16px;border:1.5px solid;display:flex;justify-content:space-between;gap:12px;align-items:center}
+  /* ---- Alertas ---- */
+  .alert{
+    position:relative;border-radius:var(--r-m);padding:14px 18px 14px 22px;border:1px solid;
+    display:flex;justify-content:space-between;gap:14px;align-items:center;overflow:hidden;
+    -webkit-backdrop-filter:blur(16px) saturate(160%);backdrop-filter:blur(16px) saturate(160%);
+    box-shadow:var(--sh-1),var(--g-hi);
+    transition:transform var(--fast) var(--ease),box-shadow var(--mid)
+  }
+  .alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:currentColor;opacity:.85}
+  .alert:hover{transform:translateX(3px);box-shadow:var(--sh-2),var(--g-hi)}
   .alert .t{font-weight:700;font-size:13.5px}
-  .alert .s{font-size:12.5px;margin-top:2px}
-  .a-red{background:var(--red-bg);border-color:var(--red);color:#8A342C}
-  .a-amber{background:var(--amber-bg);border-color:var(--amber);color:#7A4E0E}
-  .a-sky{background:var(--sky-soft);border-color:var(--sky);color:#1B5A7A}
+  .alert .s{font-size:12.5px;margin-top:3px;opacity:.85}
+  .a-red{background:var(--red-bg);border-color:rgba(192,69,60,.3);color:#9B342C}
+  .a-amber{background:var(--amber-bg);border-color:rgba(176,115,26,.3);color:#8A5A12}
+  .a-sky{background:var(--sky-soft);border-color:rgba(46,159,214,.3);color:#175F84}
 
   /* ---- Modal ---- */
-  .overlay{position:fixed;inset:0;background:rgba(15,39,73,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px;z-index:60;overflow-y:auto}
-  .modal{background:#fff;border-radius:12px;width:100%;max-width:760px;padding:22px;margin:auto}
-  .modal h2{font-size:17px;margin-bottom:14px}
-  .modal .x{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
+  .overlay{
+    position:fixed;inset:0;background:rgba(11,37,69,.4);display:flex;align-items:flex-start;
+    justify-content:center;padding:26px 18px;z-index:60;overflow-y:auto;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    animation:ovIn .22s var(--ease) both
+  }
+  @keyframes ovIn{from{opacity:0}to{opacity:1}}
+  .modal{
+    background:linear-gradient(158deg,rgba(255,255,255,.9),rgba(255,255,255,.76));
+    -webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);
+    border:1px solid var(--g-brd);border-radius:var(--r-l);width:100%;max-width:780px;padding:26px;margin:auto;
+    box-shadow:var(--sh-3),var(--g-hi);animation:mdIn .3s var(--ease) both
+  }
+  @keyframes mdIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+  .modal h2{font-size:18px;margin-bottom:18px;color:var(--navy);padding-right:34px}
+  .modal .x{
+    float:right;background:rgba(255,255,255,.65);border:1px solid var(--g-brd);width:32px;height:32px;
+    border-radius:11px;font-size:18px;line-height:1;cursor:pointer;color:var(--muted);display:grid;
+    place-items:center;transition:all var(--fast) var(--ease);box-shadow:var(--g-hi)
+  }
+  .modal .x:hover{background:#fff;color:var(--red);transform:rotate(90deg)}
+  .modal .x:focus-visible{outline:none;box-shadow:var(--ring)}
 
-  /* ---- Tabs ---- */
-  .tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1.5px solid var(--border);margin-bottom:16px}
-  .tabs button{background:none;border:none;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);
-    border-bottom:2.5px solid transparent;margin-bottom:-1.5px;font-family:'Inter',sans-serif}
-  .tabs button.active{color:var(--navy);border-bottom-color:var(--sky)}
+  /* ---- Pestañas ---- */
+  .tabs{
+    display:flex;gap:4px;flex-wrap:wrap;margin-bottom:18px;padding:5px;border-radius:var(--r-m);
+    background:rgba(255,255,255,.45);border:1px solid var(--g-brd);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:var(--g-hi)
+  }
+  .tabs button{
+    background:none;border:1px solid transparent;padding:9px 15px;font-size:12.5px;font-weight:700;
+    cursor:pointer;color:var(--muted);border-radius:11px;font-family:'Inter',sans-serif;
+    transition:all var(--fast) var(--ease)
+  }
+  .tabs button:hover{background:rgba(255,255,255,.75);color:var(--navy)}
+  .tabs button:focus-visible{outline:none;box-shadow:var(--ring)}
+  .tabs button.active{
+    background:linear-gradient(135deg,#fff,rgba(255,255,255,.82));color:var(--navy);
+    border-color:var(--g-brd);box-shadow:var(--sh-1),var(--g-hi)
+  }
 
-  .empty{border:1.5px dashed var(--border-input);border-radius:10px;padding:22px;text-align:center;color:var(--muted);font-size:13px}
-  .section-title{font-size:15px;margin-bottom:12px}
+  .empty{
+    border:1px dashed rgba(15,32,53,.18);border-radius:var(--r-m);padding:30px 22px;text-align:center;
+    color:var(--muted);font-size:13px;background:rgba(255,255,255,.35);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)
+  }
   .muted{color:var(--muted)}
-  .rowbtns{display:flex;gap:14px;flex-wrap:wrap}
-  .kv{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12.5px;color:var(--muted)}
+  .rowbtns{display:flex;gap:10px;flex-wrap:wrap}
+  .kv{display:flex;flex-wrap:wrap;gap:7px 22px;font-size:12.5px;color:var(--muted)}
   .kv b{color:var(--navy)}
 
-  /* ---- Toasts ---- */
-  .toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:100;max-width:360px}
-  .toast{padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(15,39,73,.18);border:1.5px solid}
-  .toast.ok{background:var(--green-bg);border-color:var(--green);color:#2A6B44}
-  .toast.err{background:var(--red-bg);border-color:var(--red);color:#8A342C}
-  .toast.info{background:var(--sky-soft);border-color:var(--sky);color:#1B5A7A}
+  /* Panel de permisos */
+  .perm-table td:first-child{font-weight:700;color:var(--navy)}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 9px;
+    border-radius:var(--r-pill);border:1px solid}
+  .tag-yes{color:#12734D;background:var(--green-bg);border-color:rgba(21,138,91,.32)}
+  .tag-no{color:var(--muted);background:rgba(15,32,53,.05);border-color:rgba(15,32,53,.1)}
 
-  /* ---- Auth ---- */
-  .auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
-    background:linear-gradient(135deg,var(--navy),var(--navy-soft))}
-  .auth .box{background:#fff;border-radius:14px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-  .auth .box img{width:56px;height:56px;border-radius:50%;background:#fff;display:block;margin:0 auto 10px}
-  .auth h1{text-align:center;font-size:19px}
-  .auth p.sub{text-align:center;color:var(--muted);font-size:12.5px;margin:4px 0 20px}
-  .auth .field{margin-bottom:14px}
-  .spinner{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;
-    display:inline-block;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:6px}
-  .spinner.dark{border-color:rgba(15,39,73,.25);border-top-color:var(--navy)}
+  /* ---- Toasts ---- */
+  .toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:100;max-width:380px}
+  .toast{
+    position:relative;padding:13px 16px 13px 20px;border-radius:var(--r-m);font-size:13px;font-weight:600;
+    border:1px solid;overflow:hidden;box-shadow:var(--sh-2),var(--g-hi);
+    -webkit-backdrop-filter:blur(18px) saturate(170%);backdrop-filter:blur(18px) saturate(170%);
+    animation:tIn .3s var(--ease) both
+  }
+  .toast::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:currentColor;opacity:.9}
+  @keyframes tIn{from{opacity:0;transform:translateX(24px) scale(.96)}to{opacity:1;transform:none}}
+  .toast.ok{background:rgba(226,246,236,.88);border-color:rgba(21,138,91,.3);color:#12734D}
+  .toast.err{background:rgba(251,235,233,.9);border-color:rgba(192,69,60,.3);color:#9B342C}
+  .toast.info{background:rgba(229,243,250,.9);border-color:rgba(46,159,214,.3);color:#175F84}
+
+  /* ---- Autenticación ---- */
+  .auth{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px;position:relative;overflow:hidden;
+    background:
+      radial-gradient(900px 520px at 12% 8%, rgba(46,159,214,.42), transparent 60%),
+      radial-gradient(800px 480px at 88% 92%, rgba(22,169,155,.34), transparent 60%),
+      linear-gradient(140deg,#0B2545 0%,#14375F 48%,#0B2545 100%);
+  }
+  .auth::before,.auth::after{content:"";position:absolute;border-radius:50%;filter:blur(64px);pointer-events:none}
+  .auth::before{width:34vmax;height:34vmax;left:-8vmax;bottom:-10vmax;
+    background:radial-gradient(circle,rgba(91,192,232,.4),transparent 68%);animation:float1 24s var(--ease) infinite alternate}
+  .auth::after{width:28vmax;height:28vmax;right:-6vmax;top:-8vmax;
+    background:radial-gradient(circle,rgba(22,169,155,.36),transparent 68%);animation:float2 30s var(--ease) infinite alternate}
+  .auth .box{
+    position:relative;z-index:1;width:100%;max-width:420px;padding:34px 30px;border-radius:var(--r-l);
+    background:linear-gradient(158deg,rgba(255,255,255,.9),rgba(255,255,255,.72));
+    -webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);
+    border:1px solid rgba(255,255,255,.7);
+    box-shadow:0 34px 80px rgba(0,0,0,.34),var(--g-hi);
+    animation:mdIn .45s var(--ease) both
+  }
+  .auth .box img{width:62px;height:62px;border-radius:20px;display:block;margin:0 auto 14px;padding:4px;
+    background:linear-gradient(145deg,#fff,rgba(255,255,255,.6));box-shadow:0 10px 26px rgba(11,37,69,.22),var(--g-hi)}
+  .auth h1{text-align:center;font-size:19px;color:var(--navy)}
+  .auth p.sub{text-align:center;color:var(--muted);font-size:12.5px;margin:6px 0 22px;line-height:1.5}
+  .auth .field{margin-bottom:15px}
+
+  .spinner{
+    width:15px;height:15px;border:2.2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;
+    display:inline-block;animation:sp .7s linear infinite;flex-shrink:0
+  }
+  .spinner.dark{border-color:rgba(11,37,69,.2);border-top-color:var(--navy)}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .skel{background:linear-gradient(90deg,#eef3f7,#f7fafc,#eef3f7);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px;height:14px}
+  .skel{
+    background:linear-gradient(90deg,rgba(255,255,255,.25),rgba(255,255,255,.7),rgba(255,255,255,.25));
+    background-size:200% 100%;animation:sk 1.3s infinite;border-radius:8px;height:14px
+  }
   @keyframes sk{to{background-position:-200% 0}}
 
+  /* ---- Responsive ---- */
+  @media(max-width:1100px){
+    .content{padding:20px 16px 36px}
+    .topbar{padding:10px 16px}
+    .dev-banner{padding:9px 16px}
+  }
   @media(max-width:860px){
-    .sidebar{position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%);transition:transform .2s;box-shadow:0 0 40px rgba(0,0,0,.3)}
+    .sidebar{
+      position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%);
+      transition:transform var(--mid) var(--ease);box-shadow:var(--sh-3);
+      background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.86));
+    }
     .sidebar.open{transform:translateX(0)}
-    .hamburger{display:block}
-    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40}
+    .hamburger{display:grid;place-items:center}
+    .backdrop{position:fixed;inset:0;background:rgba(11,37,69,.34);z-index:40;
+      -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:ovIn .2s var(--ease) both}
+    .breadcrumb .bc-path{display:none}
+  }
+  @media(max-width:640px){
+    .content{padding:16px 12px 32px}
+    .topbar{padding:10px 12px;gap:10px}
+    .topbar .role-chip{display:none}
+    .card{padding:15px 16px;border-radius:var(--r-s)}
+    .modal{padding:20px 16px;border-radius:var(--r-m)}
+    .stat .n{font-size:26px}
+    .stat .kpi-ico{width:38px;height:38px;border-radius:12px}
+    .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+    .toasts{right:10px;left:10px;bottom:10px;max-width:none}
+    .breadcrumb{display:none}
+    th,td{padding:10px 11px}
+    .btn{padding:10px 15px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+      transition-duration:.01ms !important;scroll-behavior:auto !important}
+    .btn:hover,.card:hover,.stat:hover,.alert:hover{transform:none}
   }
 </style>
 </head>
@@ -156,11 +528,13 @@
     var r = document.getElementById("root");
     if(!r) return;
     r.innerHTML =
-      '<div style="max-width:720px;margin:40px auto;font-family:Inter,Arial,sans-serif;'+
-      'background:#FBEAE8;border:1.5px solid #B8483F;border-radius:10px;padding:20px;color:#8A342C">'+
-      '<h2 style="margin:0 0 8px;font-family:serif">⚠️ '+title+'</h2>'+
-      '<pre style="white-space:pre-wrap;font-size:13px;margin:0">'+String(detail||"").replace(/</g,"&lt;")+'</pre>'+
-      '<p style="margin:12px 0 0;font-size:12.5px;color:#5B6B7A">Revisa esta información o compártela para diagnosticar. '+
+      '<div style="max-width:720px;margin:48px auto;font-family:Inter,Arial,sans-serif;'+
+      'background:rgba(251,235,233,.88);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);'+
+      'border:1px solid rgba(192,69,60,.35);border-radius:22px;padding:26px;color:#9B342C;'+
+      'box-shadow:0 30px 70px rgba(11,37,69,.22),inset 0 1px 0 rgba(255,255,255,.8)">'+
+      '<h2 style="margin:0 0 10px;font-family:Georgia,serif;font-size:19px">⚠️ '+title+'</h2>'+
+      '<pre style="white-space:pre-wrap;font-size:13px;margin:0;line-height:1.6">'+String(detail||"").replace(/</g,"&lt;")+'</pre>'+
+      '<p style="margin:14px 0 0;font-size:12.5px;color:#66788D">Revisa esta información o compártela para diagnosticar. '+
       'Verifica también tu conexión y que SUPABASE_URL/anon key sean correctas.</p></div>';
   }
   window.addEventListener("error", function(e){
@@ -197,7 +571,7 @@
 const SUPABASE_URL      = "https://bemhrdkcrihjdkzfmtgf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlbWhyZGtjcmloamRremZtdGdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE5MjUsImV4cCI6MjEwMTg1NzkyNX0.9GUikIKf9B_H3TdmpJxLBiwNxDdu6putQ2iXhQPghck";
 
-const APP_VERSION = "v8 · nuevo-ingreso-siempre";
+const APP_VERSION = "v8 · liquid-glass · permisos declarativos";
 const LOGO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='#0F2749'/><text x='50' y='62' font-size='34' fill='#2E9FD6' text-anchor='middle' font-family='serif' font-weight='700'>CU</text></svg>"
 );
@@ -224,6 +598,7 @@ const proximoAniversario = (ingreso) => { if(!ingreso) return null; const ing=ne
   if(n<t) n.setFullYear(n.getFullYear()+1); return n.toISOString().slice(0,10); };
 const money = (v) => (v===null||v===undefined||v==="")?"—":new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(v);
 const esc = (s) => String(s??"");
+const cap = (s) => s ? s.charAt(0).toUpperCase()+s.slice(1) : s;
 
 /* ------------------------- Etiquetas de enums ------------------------- */
 const ROLE_LABELS = { administrador:"Administrador", talento_humano:"Talento Humano", sst:"SST", jefe_area:"Jefe de Área", empleado:"Empleado" };
@@ -240,22 +615,137 @@ const DIS_TYPES = { enfermedad_general:"Enfermedad general", accidente_laboral:"
 const EMP_STATUS = { activo:"Activo", retirado:"Retirado", suspendido:"Suspendido" };
 const opts = (obj) => Object.entries(obj).map(([v,l]) => <option key={v} value={v}>{l}</option>);
 
-/* ------------------------- Permisos (UI) ------------------------- */
-const canWrite = (role, area) => {
-  if(role==="administrador") return true;
-  if(area==="employees"||area==="contracts"||area==="social_security"||area==="vacations"||area==="documents")
-    return role==="talento_humano";
-  if(area==="disabilities") return role==="talento_humano"||role==="sst";
-  if(area==="users") return false;
-  return false;
+/* =====================================================================
+   CONFIGURACIÓN DE DESARROLLO
+   Solo afecta a la INTERFAZ. No toca la autenticación ni la seguridad
+   del backend: las políticas RLS de Supabase siguen siendo la única
+   autoridad y siguen validando cada operación.
+
+   Cómo activarla (solo en localhost / archivo local):
+     · ?ui_permissions=all            → muestra todas las acciones de la UI
+     · ?role_override=talento_humano  → evalúa la UI como si tuvieras ese rol
+     · ?debug=1                       → traza permisos en la consola
+   O de forma persistente, en la consola del navegador:
+     localStorage.setItem("th_ui_permissions","all")
+     localStorage.setItem("th_role_override","talento_humano")
+     localStorage.removeItem("th_ui_permissions")   // desactivar
+   ===================================================================== */
+const DEV_CONFIG = (() => {
+  const host = (location.hostname || "").toLowerCase();
+  const isLocal = location.protocol === "file:" || host === "localhost" ||
+                  host === "127.0.0.1" || host === "[::1]" || host === "";
+  const qs = new URLSearchParams(location.search);
+  const read = (key) => {
+    const fromUrl = qs.get(key);
+    if (fromUrl !== null) return fromUrl;
+    try { return localStorage.getItem("th_" + key); } catch (_) { return null; }
+  };
+  const roleRaw = (read("role_override") || "").trim();
+  return {
+    isLocal,
+    // Desbloquea la VISIBILIDAD de acciones en la UI (el servidor sigue validando)
+    unlockUI: isLocal && String(read("ui_permissions") || "").toLowerCase() === "all",
+    // Evalúa la UI con otro rol, útil para revisar pantallas sin cambiar la BD
+    roleOverride: isLocal && ROLE_LABELS[roleRaw] ? roleRaw : null,
+    debug: isLocal && String(read("debug") || "") === "1",
+  };
+})();
+const DEV_ACTIVE = DEV_CONFIG.unlockUI || !!DEV_CONFIG.roleOverride;
+
+/* =====================================================================
+   PERMISOS DE INTERFAZ
+   Esta matriz es un ESPEJO de las políticas RLS declaradas en
+   supabase_talento_humano.sql (sección 8). Su único trabajo es no
+   ofrecer acciones que el servidor va a rechazar. NO es el control de
+   seguridad: si aquí dice "sí" y la política dice "no", manda la política.
+
+   Traducción de las políticas a esta tabla:
+     is_hr()            = administrador | talento_humano
+     is_sst()           = administrador | sst
+     is_admin()         = administrador
+     employees_delete   → is_admin()                (¡no basta con ser HR!)
+     documentos_read    → is_hr() o is_sst()        (descarga desde Storage)
+     disabilities_write → is_hr() o is_sst()
+     users              → is_admin()
+     audit (select)     → is_admin() o profile_id = auth.uid()
+   ===================================================================== */
+const AREAS = ["employees","contracts","social_security","vacations","disabilities","documents","users","audit","salary"];
+
+/* Nota sobre `audit`: audit_select permite `is_admin() or profile_id = auth.uid()`,
+   así que cualquier rol lee SUS propios eventos (por eso tiene read en todos).
+   La tabla es inmutable: no hay políticas de UPDATE/DELETE para nadie. */
+const PERMISSION_MATRIX = {
+  administrador:  { read:"*",
+                    write:["employees","contracts","social_security","vacations","disabilities","documents","users"],
+                    delete:["employees","contracts","social_security","vacations","disabilities","documents"] },
+  talento_humano: { read:["employees","contracts","social_security","vacations","disabilities","documents","salary","audit"],
+                    write:["employees","contracts","social_security","vacations","disabilities","documents"],
+                    delete:["contracts","social_security","vacations","disabilities","documents"] },
+  sst:            { read:["employees","contracts","social_security","vacations","disabilities","documents","salary","audit"],
+                    write:["disabilities"],
+                    delete:["disabilities"] },
+  jefe_area:      { read:["employees","contracts","social_security","vacations","disabilities","audit"],
+                    write:[], delete:[] },
+  empleado:       { read:["employees","contracts","social_security","vacations","disabilities","salary","audit"],
+                    write:[], delete:[] },
 };
+
+/* Motivo legible de por qué una acción no está disponible */
+const ACTION_LABELS = { read:"consultar", write:"crear o editar", delete:"eliminar" };
+const AREA_LABELS = {
+  employees:"empleados", contracts:"contratos", social_security:"seguridad social",
+  vacations:"vacaciones", disabilities:"incapacidades", documents:"documentos",
+  users:"usuarios y roles", audit:"auditoría", salary:"información salarial",
+};
+
+/* Rol con el que se EVALÚA la interfaz (puede venir del override de desarrollo) */
+const uiRole = (roleOrProfile) => {
+  const role = (roleOrProfile && roleOrProfile.role) || roleOrProfile || null;
+  return DEV_CONFIG.roleOverride || role;
+};
+
+/* ¿Puede el rol hacer `action` sobre `area`? action: read | write | delete */
+function can(roleOrProfile, area, action = "write"){
+  const role = uiRole(roleOrProfile);
+  const entry = PERMISSION_MATRIX[role];
+  let allowed;
+  if(!entry){
+    // Rol desconocido (enum nuevo en la BD sin reflejar aquí): se niega, pero se avisa.
+    console.warn("[permisos] Rol sin matriz de UI definida:", role, "— revisa PERMISSION_MATRIX.");
+    allowed = false;
+  }else if(!AREAS.includes(area)){
+    // Antes esto devolvía false en silencio y "apagaba" botones sin explicación.
+    console.warn("[permisos] Área desconocida:", area, "— revisa la constante AREAS.");
+    allowed = false;
+  }else{
+    const list = entry[action];
+    allowed = list === "*" ? true : Array.isArray(list) && list.includes(area);
+  }
+  if(DEV_CONFIG.debug) console.debug("[permisos]", role, action, area, "→", allowed, DEV_CONFIG.unlockUI ? "(UI desbloqueada)" : "");
+  // El desbloqueo de desarrollo solo abre la UI; el servidor sigue decidiendo.
+  return allowed || DEV_CONFIG.unlockUI;
+}
+
+/* Texto explicativo para mostrar en pantalla cuando algo está restringido */
+const whyNot = (roleOrProfile, area, action = "write") =>
+  `Tu rol (${ROLE_LABELS[uiRole(roleOrProfile)] || "sin rol"}) no puede ${ACTION_LABELS[action]} ${AREA_LABELS[area] || area}.`;
+
+/* Rol vigente, disponible para los mensajes de error (lo fija Root al cargar el perfil) */
+let CURRENT_ROLE = null;
 
 /* ------------------------- Mensaje de error amigable ------------------------- */
 function friendlyError(e){
   const msg = (e && (e.message||e.error_description||e.msg)) || "";
+  const code = (e && e.code) || "";
   if(/Invalid login/i.test(msg)) return "Correo o contraseña incorrectos.";
   if(/Email not confirmed/i.test(msg)) return "Debes confirmar tu correo antes de ingresar.";
-  if(/row-level security|violates row-level/i.test(msg)) return "No tienes permisos para realizar esta acción.";
+  // Rechazo del servidor por RLS: se explica el estado real del permiso en vez
+  // de un mensaje genérico, para poder corregir la causa (el rol) y no ocultarla.
+  if(/row-level security|violates row-level|not authorized|permission denied/i.test(msg) || code==="42501"){
+    const rol = CURRENT_ROLE ? `«${ROLE_LABELS[CURRENT_ROLE] || CURRENT_ROLE}»` : "sin rol asignado";
+    return "El servidor rechazó la acción por permisos (RLS). Tu rol actual es " + rol +
+           ". Pide a un administrador que ajuste tu rol en «Usuarios y roles», o revisa «Permisos» en el menú.";
+  }
   if(/duplicate key|unique/i.test(msg)) return "Ya existe un registro con ese valor único (ej. cédula o número de contrato).";
   if(/Failed to fetch|NetworkError|network/i.test(msg)) return "No fue posible conectar. Verifica tu conexión a Internet.";
   if(/JWT expired|token/i.test(msg)) return "Tu sesión expiró. Vuelve a iniciar sesión.";
@@ -277,8 +767,61 @@ function Toasts({items}){
 }
 
 /* =====================================================================
+   Iconografía · un solo set de trazos (24x24, currentColor)
+   ===================================================================== */
+const ICON_PATHS = {
+  dashboard:  "M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6ZM13 9h8V3h-8v6Z",
+  users:      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11",
+  beach:      "M3 20h18M6 20c0-6 3.6-10 6-10s6 4 6 10M12 10V4m0 0 4 2m-4-2L8 6",
+  health:     "M4.5 13H8l1.5-4 3 8L14 13h5.5M20.8 6.6a5 5 0 0 0-7.1 0L12 8.3l-1.7-1.7a5 5 0 1 0-7.1 7.1l8.8 8.8 8.8-8.8a5 5 0 0 0 0-7.1Z",
+  clipboard:  "M9 4h6v3H9V4Zm-2 1H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1M8 12h8M8 16h5",
+  settings:   "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.4-2.6.1-.9-.1-.9 2-1.5-2-3.4-2.3 1a7.2 7.2 0 0 0-1.6-.9L15.2 3H8.8l-.3 2.3c-.6.2-1.1.5-1.6.9l-2.3-1-2 3.4 2 1.5-.1.9.1.9-2 1.5 2 3.4 2.3-1c.5.4 1 .7 1.6.9l.3 2.3h6.4l.3-2.3c.6-.2 1.1-.5 1.6-.9l2.3 1 2-3.4-2-1.5Z",
+  shield:     "M12 3 4 6v6c0 5 3.4 8.3 8 9 4.6-.7 8-4 8-9V6l-8-3Zm-2 9 1.8 1.8L15 10",
+  search:     "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35",
+  logout:     "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H10",
+  menu:       "M4 7h16M4 12h16M4 17h16",
+  plus:       "M12 5v14M5 12h14",
+  back:       "M19 12H5m7-7-7 7 7 7",
+  download:   "M12 3v12m0 0 4-4m-4 4-4-4M4 19h16",
+  edit:       "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
+  trash:      "M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3",
+  check:      "M20 6 9 17l-5-5",
+  refresh:    "M21 12a9 9 0 1 1-3-6.7M21 4v5h-5",
+  alert:      "M12 9v5m0 3h.01M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 21h15.8a2 2 0 0 0 1.7-3.4L13.7 3.9a2 2 0 0 0-3.4 0Z",
+  info:       "M12 16v-5m0-3h.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+  file:       "M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z",
+  contract:   "M9 13h6m-6 4h4M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z",
+  upload:     "M12 15V3m0 0-4 4m4-4 4 4M4 19h16",
+  calendar:   "M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z",
+  clock:      "M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  key:        "M14.5 9.5a3.5 3.5 0 1 0-3.4-4.4M13 11 3 21m0 0h4v-4",
+  lock:       "M6 11V8a6 6 0 0 1 12 0v3M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z",
+};
+function Icon({name, size}){
+  const d = ICON_PATHS[name] || ICON_PATHS.info;
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+      style={size?{width:size,height:size}:null}>
+      <path d={d}/>
+    </svg>
+  );
+}
+
+/* =====================================================================
    Átomos de UI
    ===================================================================== */
+/* Aviso en línea (se usa para explicar estados de permisos, no para ocultarlos) */
+function Notice({kind="sky", icon="info", children}){
+  return (
+    <div className={"alert a-"+kind} style={{marginBottom:14}}>
+      <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+        <span style={{flexShrink:0,marginTop:1}}><Icon name={icon}/></span>
+        <div className="s" style={{marginTop:0}}>{children}</div>
+      </div>
+    </div>
+  );
+}
 function Badge({status}){
   const map = {
     activo:"b-green", vigente:"b-green", aprobada:"b-green", activa:"b-green", aplicada:"b-green", disfrutada:"b-sky",
@@ -290,12 +833,34 @@ function Badge({status}){
   return <span className={"badge "+cls}><span className="dot"/>{label}</span>;
 }
 function Field({label, children}){ return <label className="f"><span>{label}</span>{children}</label>; }
-function Empty({text}){ return <div className="empty">{text}</div>; }
+function Empty({text}){
+  return (
+    <div className="empty">
+      <div style={{opacity:.45,marginBottom:8,display:"flex",justifyContent:"center"}}><Icon name="file" size={26}/></div>
+      {text}
+    </div>
+  );
+}
+/* Tarjeta de error consistente (misma presentación en todos los módulos) */
+function ErrorCard({error, onRetry, children}){
+  return (
+    <div className="card">
+      <div style={{display:"flex",gap:11,alignItems:"flex-start"}}>
+        <span style={{color:"var(--red)",flexShrink:0,marginTop:1}}><Icon name="alert" size={19}/></span>
+        <div style={{minWidth:0}}>
+          <b style={{color:"var(--navy)"}}>{error}</b>
+          {children}
+        </div>
+      </div>
+      {onRetry && <div style={{marginTop:14}}><button className="btn ghost sm" onClick={onRetry}><Icon name="refresh"/>Reintentar</button></div>}
+    </div>
+  );
+}
 function Modal({title, onClose, children, wide}){
   return (
     <div className="overlay" onMouseDown={(e)=>{ if(e.target===e.currentTarget) onClose(); }}>
-      <div className="modal" style={wide?{maxWidth:920}:null}>
-        <button className="x" onClick={onClose}>×</button>
+      <div className="modal" style={wide?{maxWidth:920}:null} role="dialog" aria-modal="true" aria-label={title}>
+        <button className="x" onClick={onClose} aria-label="Cerrar">×</button>
         <h2>{title}</h2>
         {children}
       </div>
@@ -384,8 +949,8 @@ function Auth(){
         {err && <div className="toast err" style={{marginBottom:12}}>{err}</div>}
         {msg && <div className="toast ok" style={{marginBottom:12}}>{msg}</div>}
 
-        <button className="btn primary" style={{width:"100%"}} disabled={busy}>
-          {busy && <span className="spinner"/>}
+        <button className="btn accent block" disabled={busy}>
+          {busy ? <span className="spinner"/> : <Icon name={mode==="login"?"lock":"key"}/>}
           {mode==="login" ? "Ingresar" : "Enviar enlace de recuperación"}
         </button>
 
@@ -424,14 +989,15 @@ function GlobalSearch({onOpenEmployee}){
 
   return (
     <div className="search" onBlur={()=>setTimeout(()=>setOpen(false),150)}>
+      <span className="s-ico"><Icon name="search"/></span>
       <input placeholder="Buscar empleado por nombre, cédula, cargo o ciudad…" value={q}
         onChange={e=>setQ(e.target.value)} onFocus={()=>res.length&&setOpen(true)}/>
       {open && res.length>0 && (
-        <div className="card" style={{position:"absolute",top:"110%",left:0,right:0,zIndex:30,padding:6,maxHeight:340,overflow:"auto"}}>
+        <div className="card" style={{position:"absolute",top:"calc(100% + 8px)",left:0,right:0,zIndex:30,padding:6,maxHeight:340,overflow:"auto"}}>
           {res.map(e=>(
-            <div key={e.id} style={{padding:"8px 10px",borderRadius:6,cursor:"pointer"}}
+            <div key={e.id} style={{padding:"9px 11px",borderRadius:10,cursor:"pointer",transition:"background .16s"}}
               onMouseDown={()=>{ onOpenEmployee(e.id); setOpen(false); setQ(""); }}
-              onMouseOver={ev=>ev.currentTarget.style.background="#F3F7FA"}
+              onMouseOver={ev=>ev.currentTarget.style.background="rgba(46,159,214,.12)"}
               onMouseOut={ev=>ev.currentTarget.style.background="transparent"}>
               <b>{e.first_name} {e.last_name}</b>
               <span className="muted" style={{fontSize:12}}> · {e.document_number} · {e.position_title||"—"} · {EMP_STATUS[e.status]}</span>
@@ -463,7 +1029,15 @@ function Dashboard({profile, onOpenEmployee}){
   }, []);
 
   if(s.loading) return <div><h2 className="section-title">Resumen</h2><SkeletonRows cols={4} rows={2}/></div>;
-  if(s.error) return <div className="card"><b>⚠️ {s.error}</b><div style={{marginTop:10}}><button className="btn ghost sm" onClick={s.reload}>Reintentar</button></div></div>;
+  if(s.error) return (
+    <div className="card">
+      <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+        <span style={{color:"var(--red)",flexShrink:0}}><Icon name="alert" size={20}/></span>
+        <b>{s.error}</b>
+      </div>
+      <div style={{marginTop:14}}><button className="btn ghost sm" onClick={s.reload}><Icon name="refresh"/>Reintentar</button></div>
+    </div>
+  );
 
   const { stats:st, contratos, empleados, vacaciones, proximas } = s.data;
   // Alertas contractuales
@@ -486,20 +1060,29 @@ function Dashboard({profile, onOpenEmployee}){
   const bandFor = (r)=> r<0?"a-red": r<=7?"a-red": r<=30?"a-amber":"a-sky";
   const textFor = (r)=> r<0?`Vencido hace ${-r} día(s)`: r===0?"Vence hoy": r===1?"Vence mañana":`Vence en ${r} día(s)`;
 
-  const Stat = ({l,n,color})=>(<div className="card stat"><div className="l">{l}</div><div className="n" style={{color}}>{n}</div></div>);
+  /* Tarjeta KPI: etiqueta, cifra y mosaico de icono (estilo Argon en vidrio) */
+  const Stat = ({l,n,color,tone,ico})=>(
+    <div className="card stat">
+      <div style={{minWidth:0}}>
+        <div className="l">{l}</div>
+        <div className="n" style={{color}}>{n}</div>
+      </div>
+      <div className={"kpi-ico ico-"+tone}><Icon name={ico}/></div>
+    </div>
+  );
 
   return (
     <div>
       <h2 className="section-title">Resumen</h2>
-      <div className="grid stats" style={{marginBottom:20}}>
-        <Stat l="Empleados activos" n={st.empleados_activos} color="var(--green)"/>
-        <Stat l="Retirados" n={st.empleados_retirados} color="var(--red)"/>
-        <Stat l="Contratos vigentes" n={st.contratos_vigentes} color="var(--navy)"/>
-        <Stat l="Contratos por vencer (30d)" n={st.contratos_por_vencer} color="var(--amber)"/>
-        <Stat l="Contratos vencidos" n={st.contratos_vencidos} color="var(--red)"/>
-        <Stat l="Vacaciones vigentes" n={st.vacaciones_vigentes} color="var(--sky)"/>
-        <Stat l="Incapacidades del mes" n={st.incapacidades_mes} color="var(--navy)"/>
-        <Stat l="Novedades pendientes" n={st.novedades_pendientes} color="var(--amber)"/>
+      <div className="grid stats" style={{marginBottom:24}}>
+        <Stat l="Empleados activos"          n={st.empleados_activos}     color="var(--green)" tone="green" ico="users"/>
+        <Stat l="Retirados"                  n={st.empleados_retirados}   color="var(--red)"   tone="red"   ico="logout"/>
+        <Stat l="Contratos vigentes"         n={st.contratos_vigentes}    color="var(--navy)"  tone="navy"  ico="contract"/>
+        <Stat l="Contratos por vencer (30d)" n={st.contratos_por_vencer}  color="var(--amber)" tone="amber" ico="clock"/>
+        <Stat l="Contratos vencidos"         n={st.contratos_vencidos}    color="var(--red)"   tone="red"   ico="alert"/>
+        <Stat l="Vacaciones vigentes"        n={st.vacaciones_vigentes}   color="var(--sky)"   tone="sky"   ico="beach"/>
+        <Stat l="Incapacidades del mes"      n={st.incapacidades_mes}     color="var(--navy)"  tone="teal"  ico="health"/>
+        <Stat l="Novedades pendientes"       n={st.novedades_pendientes}  color="var(--amber)" tone="amber" ico="clipboard"/>
       </div>
 
       <h2 className="section-title">Centro de alertas</h2>
@@ -530,11 +1113,14 @@ function Dashboard({profile, onOpenEmployee}){
       {proximas.length===0 ? <Empty text="No hay vacaciones programadas por ahora."/> :
         <div className="grid" style={{gap:8}}>
           {proximas.map(v=>(
-            <div key={v.id} className="card" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",cursor:"pointer"}}
+            <div key={v.id} className="card int" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"14px 18px"}}
               onClick={()=>onOpenEmployee(v.employee_id)}>
-              <div>
-                <div style={{fontWeight:700,fontSize:13.5}}>{v.employees? v.employees.first_name+" "+v.employees.last_name : "—"}</div>
+              <div style={{display:"flex",gap:12,alignItems:"center",minWidth:0}}>
+                <div className="kpi-ico ico-sky" style={{width:38,height:38,borderRadius:12}}><Icon name="beach" size={17}/></div>
+                <div style={{minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:13.5,color:"var(--navy)"}}>{v.employees? v.employees.first_name+" "+v.employees.last_name : "—"}</div>
                 <div className="muted" style={{fontSize:12.5}}>{fmt(v.start_date)} — {fmt(v.end_date)} · {v.days} días</div>
+                </div>
               </div>
               <Badge status={v.status}/>
             </div>
@@ -617,7 +1203,7 @@ function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
       </div>
       <Field label="Notas"><textarea value={form.notes} onChange={set("notes")}/></Field>
       <div className="rowbtns" style={{marginTop:14}}>
-        <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}{isEdit?"Guardar cambios":"Registrar empleado"}</button>
+        <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}{isEdit?"Guardar cambios":"Registrar empleado"}</button>
         <button className="btn ghost" onClick={onClose}>Cancelar</button>
       </div>
     </Modal>
@@ -625,7 +1211,7 @@ function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
 }
 
 function Empleados({profile, departments, onOpenEmployee}){
-  const write = canWrite(profile.role, "employees");
+  const write = can(profile, "employees", "write");
   const toast = useToast();
   const [q,setQ] = useState("");
   const [dep,setDep] = useState("");
@@ -687,14 +1273,21 @@ function Empleados({profile, departments, onOpenEmployee}){
 
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+      <div className="page-head">
         <h2 className="section-title" style={{margin:0}}>Empleados</h2>
-        {write && <button className="btn ghost" onClick={()=>setShowForm(true)}>Ficha completa (área, salario, banco…)</button>}
+        {write && <button className="btn ghost" onClick={()=>setShowForm(true)}><Icon name="plus"/>Ficha completa (área, salario, banco…)</button>}
       </div>
 
-      {(
-        <div className="card" style={{marginBottom:20}}>
-          <h3 className="section-title" style={{marginBottom:12}}>Nuevo ingreso</h3>
+      {!write && (
+        <Notice icon="lock">
+          Modo consulta: {whyNot(profile,"employees","write").toLowerCase()} Puedes buscar y abrir expedientes,
+          pero no crear ni modificar registros.
+        </Notice>
+      )}
+
+      {write && (
+        <div className="card" style={{marginBottom:22}}>
+          <h3 className="section-title" style={{marginBottom:14,fontSize:14}}>Nuevo ingreso</h3>
           <div className="grid form-grid">
             <Field label="Nombre completo"><input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Nombres y apellidos"/></Field>
             <Field label="Cédula"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})} placeholder="Número de cédula"/></Field>
@@ -705,14 +1298,16 @@ function Empleados({profile, departments, onOpenEmployee}){
             <Field label="Tipo de contrato"><select value={form.contract_type} onChange={e=>setForm({...form,contract_type:e.target.value})}>{opts(CONTRACT_TYPES)}</select></Field>
             {form.contract_type==="termino_fijo" && <Field label="Fecha fin del contrato"><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})}/></Field>}
           </div>
-          <div style={{marginTop:14}}>
-            <button className="btn primary" disabled={busy} onClick={registrarIngreso}>{busy&&<span className="spinner"/>}Registrar ingreso</button>
+          <div style={{marginTop:16}}>
+            <button className="btn accent" disabled={busy} onClick={registrarIngreso}>
+              {busy ? <span className="spinner"/> : <Icon name="check"/>}Registrar ingreso
+            </button>
           </div>
-          <p className="muted" style={{fontSize:12,marginTop:8}}>El nombre se separa en nombres y apellidos automáticamente; puedes ajustarlo luego en el expediente. Se crea también un contrato inicial.</p>
+          <p className="muted" style={{fontSize:12,marginTop:10}}>El nombre se separa en nombres y apellidos automáticamente; puedes ajustarlo luego en el expediente. Se crea también un contrato inicial.</p>
         </div>
       )}
 
-      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
         <input style={{flex:2,minWidth:200}} placeholder="Buscar por nombre o cédula…" value={q} onChange={e=>setQ(e.target.value)}/>
         <select style={{flex:1,minWidth:160}} value={dep} onChange={e=>setDep(e.target.value)}>
           <option value="">Todas las áreas</option>
@@ -721,7 +1316,7 @@ function Empleados({profile, departments, onOpenEmployee}){
       </div>
 
       {data.loading ? <SkeletonRows cols={5} rows={5}/> :
-       data.error ? <div className="card"><b>⚠️ {data.error}</b></div> :
+       data.error ? <ErrorCard error={data.error} onRetry={data.reload}/> :
        data.data.length===0 ? <Empty text="No hay empleados que coincidan con la búsqueda."/> :
        <div className="table-wrap">
         <table>
@@ -756,16 +1351,24 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes
   const [tab,setTab] = useState("personal");
   const [showEdit,setShowEdit] = useState(false);
   const toast = useToast();
-  const write = canWrite(profile.role,"employees");
-  const showSalary = profile.role!=="jefe_area" && profile.role!=="empleado" ? true : (profile.role==="empleado"); // jefe no ve salario
+  const write = can(profile,"employees","write");
+  // employees_delete en RLS exige is_admin(): antes el botón se mostraba a
+  // talento_humano y el servidor siempre lo rechazaba.
+  const canDelete = can(profile,"employees","delete");
+  const showSalary = can(profile,"salary","read");   // jefe_area no ve salarios
 
   const emp = useAsync(async ()=>{
     const { data, error } = await sb.from("employees").select("*").eq("id",employeeId).single();
     if(error) throw error; return data;
   }, [employeeId]);
 
-  if(emp.loading) return <div><button className="btn ghost sm" onClick={onBack}>← Volver</button><div style={{marginTop:14}}><SkeletonRows cols={3} rows={3}/></div></div>;
-  if(emp.error) return <div className="card"><button className="btn ghost sm" onClick={onBack}>← Volver</button><p><b>⚠️ {emp.error}</b></p></div>;
+  if(emp.loading) return <div><button className="btn ghost sm" onClick={onBack}><Icon name="back"/>Volver</button><div style={{marginTop:16}}><SkeletonRows cols={3} rows={3}/></div></div>;
+  if(emp.error) return (
+    <div>
+      <button className="btn ghost sm" onClick={onBack} style={{marginBottom:14}}><Icon name="back"/>Volver</button>
+      <ErrorCard error={emp.error} onRetry={emp.reload}/>
+    </div>
+  );
   const e = emp.data;
   const depName = (id)=>(departments.find(d=>d.id===id)||{}).name||"—";
 
@@ -800,25 +1403,34 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, docTypes
 
   return (
     <div>
-      <button className="btn ghost sm" onClick={onBack}>← Volver a empleados</button>
-      <div className="card" style={{margin:"14px 0 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
-        <div>
+      <button className="btn ghost sm" onClick={onBack}><Icon name="back"/>Volver a empleados</button>
+      <div className="card" style={{margin:"14px 0 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:14,alignItems:"flex-start",minWidth:0}}>
+          <div className="avatar" style={{width:48,height:48,borderRadius:16,fontSize:16}}>
+            {[e.first_name,e.last_name].filter(Boolean).map(s=>s[0]).join("").toUpperCase() || "?"}
+          </div>
+          <div style={{minWidth:0}}>
           <h2 style={{fontSize:20}}>{e.first_name} {e.last_name}</h2>
-          <div className="kv" style={{marginTop:6}}>
+          <div className="kv" style={{marginTop:8}}>
             <span>{e.document_type} <b>{e.document_number}</b></span>
             <span>Cargo: <b>{e.position_title||"—"}</b></span>
             <span>Área: <b>{depName(e.department_id)}</b></span>
             <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
           </div>
           {write && (
-            <div className="rowbtns" style={{marginTop:12}}>
-              <button className="btn ghost sm" onClick={()=>setShowEdit(true)}>Editar</button>
+            <div className="rowbtns" style={{marginTop:14}}>
+              <button className="btn ghost sm" onClick={()=>setShowEdit(true)}><Icon name="edit"/>Editar</button>
               {e.status==="activo"
-                ? <button className="btn ghost sm" onClick={marcarRetiro}>Marcar retiro</button>
-                : <button className="btn ghost sm" onClick={reactivar}>Reactivar</button>}
-              <button className="btn danger sm" onClick={eliminar}>Eliminar</button>
+                ? <button className="btn ghost sm" onClick={marcarRetiro}><Icon name="logout"/>Marcar retiro</button>
+                : <button className="btn ghost sm" onClick={reactivar}><Icon name="refresh"/>Reactivar</button>}
+              {canDelete
+                ? <button className="btn danger sm" onClick={eliminar}><Icon name="trash"/>Eliminar</button>
+                : <button className="btn danger sm" disabled title={whyNot(profile,"employees","delete")+" Solo un administrador puede eliminar."}>
+                    <Icon name="lock"/>Eliminar
+                  </button>}
             </div>
           )}
+          </div>
         </div>
         <Badge status={e.status}/>
       </div>
@@ -879,14 +1491,19 @@ function TabLaboral({e, depName, showSalary}){
         <Info label="Estado" value={EMP_STATUS[e.status]}/>
         {showSalary && <Info label="Salario base" value={money(e.salary)}/>}
       </div>
-      {!showSalary && <p className="muted" style={{marginTop:14,fontSize:12.5}}>ℹ️ Tu rol no tiene permitido ver información salarial.</p>}
+      {!showSalary && (
+        <p className="muted" style={{marginTop:16,fontSize:12.5,display:"flex",gap:7,alignItems:"center"}}>
+          <Icon name="lock"/> Tu rol no tiene permitido ver información salarial.
+        </p>
+      )}
     </div>
   );
 }
 
 /* ---------- Contratos + Otrosí ---------- */
 function TabContratos({employeeId, profile, departments}){
-  const write = canWrite(profile.role,"contracts");
+  const write = can(profile,"contracts","write");
+  const showSalary = can(profile,"salary","read");
   const [showC,setShowC] = useState(false);
   const [addFor,setAddFor] = useState(null); // contract id para nuevo otrosí
   const toast = useToast();
@@ -933,17 +1550,18 @@ function TabContratos({employeeId, profile, departments}){
   };
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   const { contracts, adds:allAdds } = data.data;
 
   return (
     <div>
-      {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setCf(emptyC());setShowC(true);}}>+ Nuevo contrato</button></div>}
+      {write
+        ? <div style={{marginBottom:14}}><button className="btn accent sm" onClick={()=>{setCf(emptyC());setShowC(true);}}><Icon name="plus"/>Nuevo contrato</button></div>
+        : <Notice icon="lock">{whyNot(profile,"contracts","write")} Esta pestaña queda en modo consulta.</Notice>}
       {contracts.length===0 ? <Empty text="Este empleado no tiene contratos registrados."/> :
-        <div className="grid" style={{gap:12}}>
+        <div className="grid" style={{gap:14}}>
           {contracts.map(c=>{
             const adds = allAdds.filter(a=>a.contract_id===c.id);
-            const showSalary = profile.role!=="jefe_area";
             return (
               <div key={c.id} className="card">
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
@@ -965,15 +1583,16 @@ function TabContratos({employeeId, profile, departments}){
                   <Badge status={c.status}/>
                 </div>
 
-                <div style={{marginTop:12,borderTop:"1px solid var(--border)",paddingTop:10}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <b style={{fontSize:13}}>Otrosí / adendas ({adds.length})</b>
+                <div style={{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                    <b style={{fontSize:13,color:"var(--navy)"}}>Otrosí / adendas ({adds.length})</b>
                     {write && <button className="linkbtn" style={{color:"var(--sky)"}} onClick={()=>{setAf(emptyA());setAddFor(c.id);}}>+ Añadir otrosí</button>}
                   </div>
-                  {adds.length===0 ? <p className="muted" style={{fontSize:12.5,margin:"6px 0 0"}}>Sin adendas.</p> :
-                    <div style={{marginTop:8,display:"grid",gap:6}}>
+                  {adds.length===0 ? <p className="muted" style={{fontSize:12.5,margin:"8px 0 0"}}>Sin adendas.</p> :
+                    <div style={{marginTop:10,display:"grid",gap:7}}>
                       {adds.map(a=>(
-                        <div key={a.id} style={{fontSize:12.5,padding:"8px 10px",background:"#F7FAFC",borderRadius:6}}>
+                        <div key={a.id} style={{fontSize:12.5,padding:"10px 12px",background:"rgba(255,255,255,.5)",
+                          border:"1px solid var(--border)",borderRadius:11}}>
                           <b>Otrosí {a.addendum_number}</b> · {ADDENDUM_TYPES[a.type]} · {fmt(a.date)}
                           {a.description && <span> — {a.description}</span>}
                           {a.change_detail && <div className="muted">Cambio: {a.change_detail}{a.application_date?` (aplica ${fmt(a.application_date)})`:""}</div>}
@@ -1005,7 +1624,7 @@ function TabContratos({employeeId, profile, departments}){
           <Field label="Motivo de terminación (si aplica)"><input value={cf.termination_reason} onChange={e=>setCf({...cf,termination_reason:e.target.value})}/></Field>
           <Field label="Observaciones"><textarea value={cf.observations} onChange={e=>setCf({...cf,observations:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:14}}>
-            <button className="btn primary" disabled={busy} onClick={saveContract}>{busy&&<span className="spinner"/>}Guardar contrato</button>
+            <button className="btn accent" disabled={busy} onClick={saveContract}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar contrato</button>
             <button className="btn ghost" onClick={()=>setShowC(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1022,7 +1641,7 @@ function TabContratos({employeeId, profile, departments}){
           <Field label="Descripción"><textarea value={af.description} onChange={e=>setAf({...af,description:e.target.value})}/></Field>
           <Field label="Cambio realizado"><textarea value={af.change_detail} onChange={e=>setAf({...af,change_detail:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:14}}>
-            <button className="btn primary" disabled={busy} onClick={saveAddendum}>{busy&&<span className="spinner"/>}Guardar otrosí</button>
+            <button className="btn accent" disabled={busy} onClick={saveAddendum}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar otrosí</button>
             <button className="btn ghost" onClick={()=>setAddFor(null)}>Cancelar</button>
           </div>
         </Modal>
@@ -1033,7 +1652,7 @@ function TabContratos({employeeId, profile, departments}){
 
 /* ---------- Seguridad social + Novedades ---------- */
 function TabSeguridad({employeeId, profile, ssEntities}){
-  const write = canWrite(profile.role,"social_security");
+  const write = can(profile,"social_security");
   const [showF,setShowF] = useState(false);
   const [showN,setShowN] = useState(false);
   const toast = useToast();
@@ -1077,7 +1696,7 @@ function TabSeguridad({employeeId, profile, ssEntities}){
   };
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   const { aff, nov } = data.data;
 
   const byKind = (k)=> aff.find(a=>a.kind===k);
@@ -1085,10 +1704,12 @@ function TabSeguridad({employeeId, profile, ssEntities}){
 
   return (
     <div>
-      {write && <div style={{marginBottom:12,display:"flex",gap:10,flexWrap:"wrap"}}>
-        <button className="btn primary sm" onClick={()=>{setF(emptyF());setShowF(true);}}>+ Afiliación</button>
-        <button className="btn ghost sm" onClick={()=>{setN(emptyN());setShowN(true);}}>+ Novedad</button>
-      </div>}
+      {write
+        ? <div style={{marginBottom:14,display:"flex",gap:10,flexWrap:"wrap"}}>
+            <button className="btn accent sm" onClick={()=>{setF(emptyF());setShowF(true);}}><Icon name="plus"/>Afiliación</button>
+            <button className="btn ghost sm" onClick={()=>{setN(emptyN());setShowN(true);}}><Icon name="plus"/>Novedad</button>
+          </div>
+        : <Notice icon="lock">{whyNot(profile,"social_security","write")} Esta pestaña queda en modo consulta.</Notice>}
 
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:16}}>
         {Object.keys(SS_KINDS).map(k=>{
@@ -1138,7 +1759,7 @@ function TabSeguridad({employeeId, profile, ssEntities}){
           <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
           <p className="muted" style={{fontSize:12,margin:"8px 0"}}>Nota: guardar reemplaza la afiliación vigente de ese tipo (una activa por tipo).</p>
           <div className="rowbtns" style={{marginTop:8}}>
-            <button className="btn primary" disabled={busy} onClick={saveAff}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn accent" disabled={busy} onClick={saveAff}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
             <button className="btn ghost" onClick={()=>setShowF(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1154,7 +1775,7 @@ function TabSeguridad({employeeId, profile, ssEntities}){
           </div>
           <Field label="Descripción"><textarea value={n.description} onChange={e=>setN({...n,description:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:8}}>
-            <button className="btn primary" disabled={busy} onClick={saveNov}>{busy&&<span className="spinner"/>}Guardar novedad</button>
+            <button className="btn accent" disabled={busy} onClick={saveNov}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar novedad</button>
             <button className="btn ghost" onClick={()=>setShowN(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1165,7 +1786,7 @@ function TabSeguridad({employeeId, profile, ssEntities}){
 
 /* ---------- Vacaciones (por empleado) ---------- */
 function TabVacaciones({emp, profile}){
-  const write = canWrite(profile.role,"vacations");
+  const write = can(profile,"vacations");
   const [show,setShow] = useState(false);
   const toast = useToast();
   const data = useAsync(async ()=>{
@@ -1197,7 +1818,7 @@ function TabVacaciones({emp, profile}){
   };
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
 
   const tomadas = data.data.filter(v=>v.status!=="rechazada").reduce((s,v)=>s+v.days,0);
   const causadas = vacacionesCausadas(emp.hire_date, emp.termination_date);
@@ -1210,7 +1831,7 @@ function TabVacaciones({emp, profile}){
         <Info label="Días tomados" value={tomadas}/>
         <Info label="Saldo pendiente" value={saldo}/>
       </div>
-      {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar vacaciones</button></div>}
+      {write && <div style={{marginBottom:12}}><button className="btn accent sm" onClick={()=>{setF(empty());setShow(true);}}><Icon name="plus"/>Registrar vacaciones</button></div>}
       {data.data.length===0 ? <Empty text="Sin periodos de vacaciones."/> :
         <div className="table-wrap"><table>
           <thead><tr><th>Inicio</th><th>Fin</th><th>Días</th><th>Estado</th><th></th></tr></thead>
@@ -1232,7 +1853,7 @@ function TabVacaciones({emp, profile}){
           <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
           <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:8}}>
-            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
             <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1243,7 +1864,7 @@ function TabVacaciones({emp, profile}){
 
 /* ---------- Incapacidades (por empleado) ---------- */
 function TabIncapacidades({employeeId, profile}){
-  const write = canWrite(profile.role,"disabilities");
+  const write = can(profile,"disabilities");
   const [show,setShow] = useState(false);
   const toast = useToast();
   const data = useAsync(async ()=>{
@@ -1275,7 +1896,7 @@ function TabIncapacidades({employeeId, profile}){
   };
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   const totalDias = data.data.reduce((s,d)=>s+d.days,0);
 
   return (
@@ -1284,7 +1905,7 @@ function TabIncapacidades({employeeId, profile}){
         <Info label="Total incapacidades" value={data.data.length}/>
         <Info label="Días acumulados" value={totalDias}/>
       </div>
-      {write && <div style={{marginBottom:12}}><button className="btn primary sm" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar incapacidad</button></div>}
+      {write && <div style={{marginBottom:12}}><button className="btn accent sm" onClick={()=>{setF(empty());setShow(true);}}><Icon name="plus"/>Registrar incapacidad</button></div>}
       {data.data.length===0 ? <Empty text="Sin incapacidades registradas."/> :
         <div className="table-wrap"><table>
           <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Entidad</th><th></th></tr></thead>
@@ -1307,7 +1928,7 @@ function TabIncapacidades({employeeId, profile}){
           <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
           <Field label="Diagnóstico / observaciones"><textarea value={f.diagnosis} onChange={e=>setF({...f,diagnosis:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:8}}>
-            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
             <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1318,7 +1939,11 @@ function TabIncapacidades({employeeId, profile}){
 
 /* ---------- Documentos ---------- */
 function TabDocumentos({employeeId, profile, docTypes}){
-  const write = canWrite(profile.role,"documents");
+  const write = can(profile,"documents");
+  // La descarga usa Storage, cuya política `documentos_read` exige is_hr() o
+  // is_sst(). El botón se mostraba a todos y para jefe_area/empleado el
+  // servidor siempre devolvía un error de permisos.
+  const canDownload = can(profile,"documents","read");
   const toast = useToast();
   const fileRef = useRef(null);
   const [uploading,setUploading] = useState(false);
@@ -1357,26 +1982,40 @@ function TabDocumentos({employeeId, profile, docTypes}){
   };
 
   if(data.loading) return <SkeletonRows cols={3} rows={3}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
 
   return (
     <div>
-      {write && (
-        <div className="card" style={{marginBottom:12,display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap"}}>
+      {write ? (
+        <div className="card" style={{marginBottom:14,display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
           <Field label="Tipo de documento"><select value={docType} onChange={e=>setDocType(e.target.value)}><option value="">— (opcional)</option>{docTypes.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
           <div>
             <input ref={fileRef} type="file" style={{display:"none"}} onChange={e=>upload(e.target.files[0])}/>
-            <button className="btn primary" disabled={uploading} onClick={()=>fileRef.current&&fileRef.current.click()}>{uploading&&<span className="spinner"/>}Subir documento</button>
+            <button className="btn accent" disabled={uploading} onClick={()=>fileRef.current&&fileRef.current.click()}>
+              {uploading ? <span className="spinner"/> : <Icon name="upload"/>}Subir documento
+            </button>
           </div>
         </div>
+      ) : <Notice icon="lock">{whyNot(profile,"documents","write")} Puedes ver el listado del expediente.</Notice>}
+
+      {!canDownload && data.data.length>0 && (
+        <Notice icon="lock">
+          {whyNot(profile,"documents","read")} Los archivos están en un bucket privado y su descarga la
+          autoriza el servidor, por eso la acción aparece deshabilitada.
+        </Notice>
       )}
+
       {data.data.length===0 ? <Empty text="Sin documentos cargados."/> :
         <div className="table-wrap"><table>
           <thead><tr><th>Nombre</th><th>Tipo MIME</th><th>Tamaño</th><th>Cargado</th><th></th></tr></thead>
           <tbody>{data.data.map(d=>(
             <tr key={d.id} style={{cursor:"default"}}>
-              <td>{d.name}</td><td>{d.mime_type||"—"}</td><td>{d.size_bytes?Math.round(d.size_bytes/1024)+" KB":"—"}</td><td>{fmtDateTime(d.created_at)}</td>
-              <td><button className="linkbtn" style={{color:"var(--sky)"}} onClick={()=>download(d)}>Descargar</button></td>
+              <td><b>{d.name}</b></td><td>{d.mime_type||"—"}</td><td>{d.size_bytes?Math.round(d.size_bytes/1024)+" KB":"—"}</td><td>{fmtDateTime(d.created_at)}</td>
+              <td>
+                {canDownload
+                  ? <button className="btn ghost sm" onClick={()=>download(d)}><Icon name="download"/>Descargar</button>
+                  : <button className="btn ghost sm" disabled title={whyNot(profile,"documents","read")}><Icon name="lock"/>Descargar</button>}
+              </td>
             </tr>
           ))}</tbody>
         </table></div>}
@@ -1391,7 +2030,7 @@ function TabAuditoria({recordId}){
     if(error) throw error; return data;
   }, [recordId]);
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   if(data.data.length===0) return <Empty text="Sin eventos de auditoría visibles para tu rol."/>;
   return (
     <div className="table-wrap"><table>
@@ -1409,7 +2048,7 @@ function TabAuditoria({recordId}){
    VACACIONES (módulo global)
    ===================================================================== */
 function VacacionesGlobal({profile}){
-  const write = canWrite(profile.role,"vacations");
+  const write = can(profile,"vacations");
   const toast = useToast();
   const [show,setShow] = useState(false);
   const data = useAsync(async ()=>{
@@ -1441,7 +2080,7 @@ function VacacionesGlobal({profile}){
     if(error){ toast(friendlyError(error),"err"); return; } toast("Registro eliminado.","ok"); data.reload(); };
 
   if(data.loading) return <div><h2 className="section-title">Vacaciones</h2><SkeletonRows cols={6} rows={5}/></div>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   const { emps, vacs } = data.data;
   const empById = {}; emps.forEach(e=>{ empById[e.id]=e; });
   const saldoDe = (id)=>{ const e=empById[id]; if(!e) return "—";
@@ -1450,10 +2089,11 @@ function VacacionesGlobal({profile}){
 
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+      <div className="page-head">
         <h2 className="section-title" style={{margin:0}}>Vacaciones</h2>
-        {write && <button className="btn primary" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar vacaciones</button>}
+        {write && <button className="btn accent" onClick={()=>{setF(empty());setShow(true);}}><Icon name="plus"/>Registrar vacaciones</button>}
       </div>
+      {!write && <Notice icon="lock">{whyNot(profile,"vacations","write")} La consulta de periodos y saldos sigue disponible.</Notice>}
       {vacs.length===0 ? <Empty text="No hay periodos de vacaciones registrados."/> :
        <div className="table-wrap"><table>
         <thead><tr><th>Empleado</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
@@ -1478,7 +2118,7 @@ function VacacionesGlobal({profile}){
           {f.employee_id && <p className="muted" style={{margin:"10px 0"}}>Saldo actual: <b style={{color:"var(--navy)"}}>{saldoDe(f.employee_id)}</b> días · Solicitado ahora: <b style={{color:"var(--navy)"}}>{dias}</b></p>}
           <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:8}}>
-            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
             <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1491,7 +2131,7 @@ function VacacionesGlobal({profile}){
    INCAPACIDADES (módulo global)
    ===================================================================== */
 function IncapacidadesGlobal({profile}){
-  const write = canWrite(profile.role,"disabilities");
+  const write = can(profile,"disabilities");
   const toast = useToast();
   const [show,setShow] = useState(false);
   const data = useAsync(async ()=>{
@@ -1522,18 +2162,19 @@ function IncapacidadesGlobal({profile}){
     if(error){ toast(friendlyError(error),"err"); return; } toast("Registro eliminado.","ok"); data.reload(); };
 
   if(data.loading) return <div><h2 className="section-title">Incapacidades</h2><SkeletonRows cols={6} rows={5}/></div>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   const { emps, dis } = data.data;
   const totalDias = dis.reduce((s,d)=>s+d.days,0);
   const esteMes = dis.filter(d=>d.start_date.slice(0,7)===todayISO().slice(0,7)).length;
 
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+      <div className="page-head">
         <h2 className="section-title" style={{margin:0}}>Incapacidades</h2>
-        {write && <button className="btn primary" onClick={()=>{setF(empty());setShow(true);}}>+ Registrar incapacidad</button>}
+        {write && <button className="btn accent" onClick={()=>{setF(empty());setShow(true);}}><Icon name="plus"/>Registrar incapacidad</button>}
       </div>
-      <div className="card" style={{marginBottom:14,display:"flex",gap:28,flexWrap:"wrap"}}>
+      {!write && <Notice icon="lock">{whyNot(profile,"disabilities","write")} La consulta del histórico sigue disponible.</Notice>}
+      <div className="card" style={{marginBottom:16,display:"flex",gap:28,flexWrap:"wrap"}}>
         <Info label="Total" value={dis.length}/>
         <Info label="Días acumulados" value={totalDias}/>
         <Info label="Este mes" value={esteMes}/>
@@ -1562,7 +2203,7 @@ function IncapacidadesGlobal({profile}){
           <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
           <Field label="Diagnóstico / observaciones"><textarea value={f.diagnosis} onChange={e=>setF({...f,diagnosis:e.target.value})}/></Field>
           <div className="rowbtns" style={{marginTop:8}}>
-            <button className="btn primary" disabled={busy} onClick={save}>{busy&&<span className="spinner"/>}Guardar</button>
+            <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
             <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -1592,7 +2233,7 @@ function Auditoria(){
         </select>
       </div>
       {data.loading ? <SkeletonRows cols={5} rows={6}/> :
-       data.error ? <div className="card"><b>⚠️ {data.error}</b></div> :
+       data.error ? <ErrorCard error={data.error} onRetry={data.reload}/> :
        data.data.length===0 ? <Empty text="No hay eventos de auditoría."/> :
        <div className="table-wrap"><table>
         <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Tabla</th><th>Registro</th></tr></thead>
@@ -1625,12 +2266,17 @@ function Usuarios({profile, departments}){
   };
 
   if(data.loading) return <SkeletonRows cols={5} rows={5}/>;
-  if(data.error) return <div className="card"><b>⚠️ {data.error}</b></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
 
   return (
     <div>
       <h2 className="section-title">Usuarios y roles</h2>
-      <p className="muted" style={{fontSize:12.5,marginBottom:12}}>Los usuarios se crean en Supabase → Authentication. Aquí asignas su rol, área y el empleado vinculado.</p>
+      <Notice icon="info">
+        Los usuarios se crean en Supabase → Authentication. Aquí asignas su <b>rol</b>, área y el empleado vinculado.
+        El rol es lo que determina qué permite el servidor: si alguien recibe «El servidor rechazó la acción por
+        permisos», normalmente su rol es <b>Empleado</b> (el valor por defecto) y debe subirse a
+        <b> Talento Humano</b> o <b>Administrador</b>.
+      </Notice>
       <div className="table-wrap"><table>
         <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Área</th><th>Empleado vinculado</th><th>Activo</th></tr></thead>
         <tbody>{data.data.map(u=>(
@@ -1646,6 +2292,98 @@ function Usuarios({profile, departments}){
           </tr>
         ))}</tbody>
       </table></div>
+    </div>
+  );
+}
+
+/* =====================================================================
+   PERMISOS · panel de diagnóstico
+   Hace visible el estado real de los permisos: qué rol tiene la sesión,
+   qué permite la UI y qué exige el servidor. Es de solo lectura: cambiar
+   un permiso se hace cambiando el rol en «Usuarios y roles» (o con el
+   override de desarrollo, que no altera el backend).
+   ===================================================================== */
+function Permisos({session, profile}){
+  const role = uiRole(profile);
+  const Tag = ({ok}) => <span className={"tag "+(ok?"tag-yes":"tag-no")}>{ok?"Permitido":"No"}</span>;
+
+  const setFlag = (key, value)=>{
+    try{
+      if(value===null) localStorage.removeItem("th_"+key);
+      else localStorage.setItem("th_"+key, value);
+      location.reload();
+    }catch(_){ /* almacenamiento no disponible (modo privado) */ }
+  };
+
+  return (
+    <div>
+      <h2 className="section-title">Permisos de tu sesión</h2>
+
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",marginBottom:18}}>
+        <div className="card"><Info label="Usuario" value={profile.full_name || session.user.email}/></div>
+        <div className="card"><Info label="Correo" value={session.user.email}/></div>
+        <div className="card"><Info label="Rol en la base de datos" value={ROLE_LABELS[profile.role]||profile.role}/></div>
+        <div className="card"><Info label="Rol con el que se evalúa la UI" value={ROLE_LABELS[role]||role}/></div>
+      </div>
+
+      {DEV_ACTIVE && (
+        <Notice kind="amber" icon="alert">
+          <b>Modo desarrollo activo.</b>{" "}
+          {DEV_CONFIG.unlockUI && "La interfaz muestra todas las acciones sin filtrar por rol. "}
+          {DEV_CONFIG.roleOverride && `La UI se evalúa como «${ROLE_LABELS[DEV_CONFIG.roleOverride]}». `}
+          Esto <b>no</b> concede acceso real: cada operación sigue pasando por las políticas RLS de Supabase,
+          que pueden rechazarla.
+          <div className="rowbtns" style={{marginTop:12}}>
+            <button className="btn ghost sm" onClick={()=>{ setFlag("ui_permissions",null); setFlag("role_override",null); }}>
+              <Icon name="refresh"/>Desactivar modo desarrollo
+            </button>
+          </div>
+        </Notice>
+      )}
+
+      <h3 className="section-title" style={{fontSize:14}}>Matriz efectiva</h3>
+      <div className="table-wrap" style={{marginBottom:18}}>
+        <table className="perm-table">
+          <thead><tr><th>Módulo</th><th>Consultar</th><th>Crear / editar</th><th>Eliminar</th></tr></thead>
+          <tbody>
+            {AREAS.filter(a=>a!=="salary").map(area=>(
+              <tr key={area} style={{cursor:"default"}}>
+                <td>{cap(AREA_LABELS[area])}</td>
+                <td><Tag ok={can(profile,area,"read")}/></td>
+                <td><Tag ok={can(profile,area,"write")}/></td>
+                <td><Tag ok={can(profile,area,"delete")}/></td>
+              </tr>
+            ))}
+            <tr style={{cursor:"default"}}>
+              <td>Información salarial</td>
+              <td><Tag ok={can(profile,"salary","read")}/></td>
+              <td className="muted">—</td><td className="muted">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card">
+        <h3 className="section-title" style={{fontSize:14}}>¿Falta un permiso?</h3>
+        <ol className="muted" style={{fontSize:12.5,lineHeight:1.75,margin:0,paddingLeft:20}}>
+          <li>La autoridad es el servidor: las políticas RLS de <code>supabase_talento_humano.sql</code> (sección 8).
+              Esta tabla solo refleja esas reglas para no ofrecer botones que serían rechazados.</li>
+          <li>Para cambiar permisos de verdad, un administrador ajusta el <b>rol</b> del usuario en
+              «Usuarios y roles». Los usuarios nuevos nacen con rol <b>Empleado</b>.</li>
+          <li>Si ningún usuario es administrador todavía, ejecuta en Supabase → SQL Editor el archivo
+              <code> crear_perfiles_faltantes.sql</code>, que crea los perfiles que falten y eleva tu correo a administrador.</li>
+          {DEV_CONFIG.isLocal && !DEV_ACTIVE && (
+            <li>Solo para desarrollo local: puedes mostrar todas las acciones de la UI (sin ganar acceso real)
+                con <code>?ui_permissions=all</code> en la URL.
+                <div className="rowbtns" style={{marginTop:10}}>
+                  <button className="btn ghost sm" onClick={()=>setFlag("ui_permissions","all")}>
+                    <Icon name="key"/>Desbloquear UI (solo local)
+                  </button>
+                </div>
+            </li>
+          )}
+        </ol>
+      </div>
     </div>
   );
 }
@@ -1675,45 +2413,95 @@ function Workspace({session, profile, onSignOut}){
   const openEmployee = (id)=>{ setEmpId(id); setView("empleados"); setMenuOpen(false); };
   const go = (v)=>{ setView(v); setEmpId(null); setMenuOpen(false); };
 
+  /* Navegación: mismos identificadores de vista y mismos permisos que antes.
+     `group` solo agrupa visualmente; `show` decide la visibilidad. */
+  const isAdmin = can(profile,"users","write");
   const NAV = [
-    {id:"dashboard", label:"Resumen", ico:"▣", show:true},
-    {id:"empleados", label:"Empleados", ico:"👥", show:true},
-    {id:"vacaciones", label:"Vacaciones", ico:"🏖", show:true},
-    {id:"incapacidades", label:"Incapacidades", ico:"🩺", show:true},
-    {id:"auditoria", label:"Auditoría", ico:"📋", show:profile.role==="administrador"},
-    {id:"usuarios",  label:"Usuarios y roles", ico:"⚙", show:profile.role==="administrador"},
+    {id:"dashboard",     label:"Resumen",          ico:"dashboard", group:"Operación",     show:true},
+    {id:"empleados",     label:"Empleados",        ico:"users",     group:"Operación",     show:true},
+    {id:"vacaciones",    label:"Vacaciones",       ico:"beach",     group:"Operación",     show:true},
+    {id:"incapacidades", label:"Incapacidades",    ico:"health",    group:"Operación",     show:true},
+    {id:"auditoria",     label:"Auditoría",        ico:"clipboard", group:"Administración", show:isAdmin},
+    {id:"usuarios",      label:"Usuarios y roles", ico:"settings",  group:"Administración", show:isAdmin},
+    {id:"permisos",      label:"Permisos",         ico:"shield",    group:"Administración", show:true},
   ].filter(n=>n.show);
+
+  const TITLES = {
+    dashboard:"Resumen", empleados: empId ? "Expediente del empleado" : "Empleados",
+    vacaciones:"Vacaciones", incapacidades:"Incapacidades",
+    auditoria:"Auditoría", usuarios:"Usuarios y roles", permisos:"Permisos",
+  };
+  const current = NAV.find(n=>n.id===view);
+  const initials = (profile.full_name || session.user.email || "?")
+    .split(/[\s@.]+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase();
+
+  /* Cabeceras de grupo del menú, sin repetir la etiqueta */
+  let lastGroup = null;
 
   return (
     <div className="shell">
       {menuOpen && <div className="backdrop" onClick={()=>setMenuOpen(false)}/>}
       <aside className={"sidebar"+(menuOpen?" open":"")}>
         <div className="brand">
-          <img src={LOGO_SRC} alt="logo"/>
+          <img src={LOGO_SRC} alt="Logo Centro Especializado de Urología"/>
           <div><b>Centro Especializado<br/>de Urología</b><span>Talento Humano</span></div>
         </div>
-        <nav className="nav">
-          {NAV.map(n=>(
-            <button key={n.id} className={view===n.id?"active":""} onClick={()=>go(n.id)}>
-              <span className="ico">{n.ico}</span>{n.label}
-            </button>
-          ))}
+        <nav className="nav" aria-label="Navegación principal">
+          {NAV.map(n=>{
+            const head = n.group!==lastGroup ? (lastGroup=n.group) : null;
+            const active = view===n.id;
+            return (
+              <React.Fragment key={n.id}>
+                {head && <div className="nav-label">{head}</div>}
+                <button className={active?"active":""} onClick={()=>go(n.id)} aria-current={active?"page":undefined}>
+                  <span className="ico"><Icon name={n.ico}/></span>{n.label}
+                </button>
+              </React.Fragment>
+            );
+          })}
         </nav>
         <div className="foot">
-          <div className="u">{profile.full_name||session.user.email}</div>
-          <div>{ROLE_LABELS[profile.role]}</div>
-          <button onClick={onSignOut}>Cerrar sesión</button>
-          <div style={{marginTop:8,fontSize:10.5,color:"#6E86A0"}}>{APP_VERSION}</div>
+          <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
+            <div className="avatar">{initials}</div>
+            <div style={{minWidth:0}}>
+              <div className="u" style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {profile.full_name||session.user.email}
+              </div>
+              <div>{ROLE_LABELS[profile.role]}</div>
+            </div>
+          </div>
+          <button onClick={onSignOut}><Icon name="logout"/>Cerrar sesión</button>
+          <div style={{marginTop:10,fontSize:10,textAlign:"center",opacity:.7}}>{APP_VERSION}</div>
         </div>
       </aside>
 
       <div className="main">
         <div className="topbar">
-          <button className="hamburger" onClick={()=>setMenuOpen(true)}>☰</button>
+          <button className="hamburger" onClick={()=>setMenuOpen(true)} aria-label="Abrir menú"><Icon name="menu"/></button>
+          <div className="breadcrumb">
+            <span className="bc-path">{current ? current.group : "Talento Humano"}</span>
+            <span className="bc-title">{TITLES[view]||"Talento Humano"}</span>
+          </div>
           <GlobalSearch onOpenEmployee={openEmployee}/>
-          <span className="role-chip">{ROLE_LABELS[profile.role]}</span>
+          <div className="topbar-right">
+            <span className="role-chip">{ROLE_LABELS[uiRole(profile)]}</span>
+            <div className="avatar" title={profile.full_name||session.user.email}>{initials}</div>
+          </div>
         </div>
-        <div className="content">
+
+        {DEV_ACTIVE && (
+          <div className="dev-banner">
+            <Icon name="alert"/>
+            <span>
+              Modo desarrollo: permisos de <b>interfaz</b> desbloqueados
+              {DEV_CONFIG.roleOverride ? <span> · rol simulado <code>{DEV_CONFIG.roleOverride}</code></span> : null}.
+              El servidor sigue validando cada operación.
+            </span>
+            <button className="linkbtn" style={{marginLeft:"auto",color:"inherit"}} onClick={()=>go("permisos")}>Ver permisos</button>
+          </div>
+        )}
+
+        <div className="content" key={view+(empId||"")}>
           {view==="dashboard" && <Dashboard profile={profile} onOpenEmployee={openEmployee}/>}
           {view==="empleados" && !empId && <Empleados profile={profile} departments={departments} onOpenEmployee={openEmployee}/>}
           {view==="empleados" && empId &&
@@ -1723,6 +2511,7 @@ function Workspace({session, profile, onSignOut}){
           {view==="incapacidades" && <IncapacidadesGlobal profile={profile}/>}
           {view==="auditoria" && <Auditoria/>}
           {view==="usuarios" && <Usuarios profile={profile} departments={departments}/>}
+          {view==="permisos" && <Permisos session={session} profile={profile}/>}
         </div>
       </div>
     </div>
@@ -1748,11 +2537,15 @@ function Root(){
   const loadProfile = useCallback(async (uid)=>{
     setProfileError(null);
     const { data, error } = await sb.from("profiles").select("*").eq("id",uid).maybeSingle();
-    if(error){ setProfileError(friendlyError(error)); setProfile(null); return; }
+    if(error){ CURRENT_ROLE=null; setProfileError(friendlyError(error)); setProfile(null); return; }
     if(!data){
+      CURRENT_ROLE = null;
       setProfileError("Tu usuario aún no tiene un perfil en la base de datos. Ejecuta en Supabase el script para crear perfiles faltantes (o pide al administrador que te asigne un rol) y vuelve a entrar.");
       setProfile(null); return;
     }
+    // El rol vigente alimenta los mensajes de permisos (friendlyError) y la UI.
+    CURRENT_ROLE = data.role;
+    if(DEV_CONFIG.debug) console.debug("[permisos] perfil cargado:", data.email, "rol:", data.role);
     setProfile(data);
   }, []);
 
@@ -1767,7 +2560,7 @@ function Root(){
     const { data:sub } = sb.auth.onAuthStateChange(async (event, sess)=>{
       setSession(sess);
       if(sess){ await loadProfile(sess.user.id); }
-      else { setProfile(null); }
+      else { CURRENT_ROLE=null; setProfile(null); }
     });
     return ()=>{ mounted=false; sub.subscription.unsubscribe(); };
   }, [loadProfile]);
@@ -1777,20 +2570,32 @@ function Root(){
     await sb.auth.signOut();
   };
 
-  if(!ready) return <div style={{padding:40,color:"var(--muted)"}}><span className="spinner dark"/> Cargando…</div>;
+  const Splash = ({text}) => (
+    <div style={{minHeight:"100vh",display:"grid",placeItems:"center",padding:24}}>
+      <div className="card" style={{display:"flex",gap:12,alignItems:"center",color:"var(--muted)",fontSize:13.5,fontWeight:600}}>
+        <span className="spinner dark"/> {text}
+      </div>
+    </div>
+  );
+
+  if(!ready) return <Splash text="Cargando…"/>;
 
   let body;
   if(!session){ body = <Auth/>; }
   else if(profileError){
-    body = <div className="auth"><div className="box"><h1>⚠️ Perfil no disponible</h1>
+    body = <div className="auth"><div className="box">
+      <div style={{display:"flex",justifyContent:"center",color:"var(--amber)",marginBottom:10}}><Icon name="alert" size={34}/></div>
+      <h1>Perfil no disponible</h1>
       <p className="sub">{profileError}</p>
-      <button className="btn ghost" style={{width:"100%"}} onClick={signOut}>Cerrar sesión</button></div></div>;
+      <button className="btn ghost block" onClick={signOut}><Icon name="logout"/>Cerrar sesión</button></div></div>;
   }
-  else if(!profile){ body = <div style={{padding:40,color:"var(--muted)"}}><span className="spinner dark"/> Cargando tu perfil…</div>; }
+  else if(!profile){ body = <Splash text="Cargando tu perfil…"/>; }
   else if(profile.active===false){
-    body = <div className="auth"><div className="box"><h1>Cuenta inactiva</h1>
+    body = <div className="auth"><div className="box">
+      <div style={{display:"flex",justifyContent:"center",color:"var(--red)",marginBottom:10}}><Icon name="lock" size={34}/></div>
+      <h1>Cuenta inactiva</h1>
       <p className="sub">Tu usuario está desactivado. Contacta al administrador.</p>
-      <button className="btn ghost" style={{width:"100%"}} onClick={signOut}>Cerrar sesión</button></div></div>;
+      <button className="btn ghost block" onClick={signOut}><Icon name="logout"/>Cerrar sesión</button></div></div>;
   }
   else { body = <Workspace session={session} profile={profile} onSignOut={signOut}/>; }
 
@@ -1810,11 +2615,13 @@ class ErrorBoundary extends React.Component{
   render(){
     if(this.state.err){
       return (
-        <div style={{maxWidth:720,margin:"40px auto",fontFamily:"Inter,Arial,sans-serif",
-          background:"#FBEAE8",border:"1.5px solid #B8483F",borderRadius:10,padding:20,color:"#8A342C"}}>
-          <h2 style={{margin:"0 0 8px",fontFamily:"serif"}}>⚠️ Ocurrió un error en la interfaz</h2>
-          <pre style={{whiteSpace:"pre-wrap",fontSize:13,margin:0}}>{String(this.state.err && this.state.err.message || this.state.err)}</pre>
-          <p style={{marginTop:12,fontSize:12.5,color:"#5B6B7A"}}>Recarga la página. Si persiste, comparte este mensaje.</p>
+        <div style={{maxWidth:720,margin:"48px auto",fontFamily:"Inter,Arial,sans-serif",
+          background:"rgba(251,235,233,.88)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",
+          border:"1px solid rgba(192,69,60,.35)",borderRadius:22,padding:26,color:"#9B342C",
+          boxShadow:"0 30px 70px rgba(11,37,69,.22), inset 0 1px 0 rgba(255,255,255,.8)"}}>
+          <h2 style={{margin:"0 0 10px",fontFamily:"'Roboto Slab',serif",fontSize:19}}>⚠️ Ocurrió un error en la interfaz</h2>
+          <pre style={{whiteSpace:"pre-wrap",fontSize:13,margin:0,lineHeight:1.6}}>{String(this.state.err && this.state.err.message || this.state.err)}</pre>
+          <p style={{marginTop:14,fontSize:12.5,color:"#66788D"}}>Recarga la página. Si persiste, comparte este mensaje.</p>
         </div>
       );
     }
