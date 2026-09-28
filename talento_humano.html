@@ -266,6 +266,12 @@
   .stat .kpi-ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex-shrink:0;color:#fff;
     box-shadow:0 8px 20px rgba(11,37,69,.22),var(--g-hi)}
   .stat .kpi-ico svg{width:20px;height:20px}
+  /* Las tarjetas del resumen son botones (abren la lista del indicador):
+     se les quita el aspecto nativo de <button> y se les da el de tarjeta. */
+  .statbtn{width:100%;font-family:'Inter',sans-serif;cursor:pointer;text-align:left;
+    -webkit-tap-highlight-color:transparent}
+  .statbtn:focus-visible{outline:none;box-shadow:var(--ring),var(--sh-2)}
+  .statbtn:active{transform:translateY(-1px) scale(.995)}
   .ico-navy{background:linear-gradient(145deg,var(--navy-3),var(--navy))}
   .ico-sky{background:linear-gradient(145deg,var(--sky-2),var(--sky))}
   .ico-green{background:linear-gradient(145deg,var(--green-2),var(--green))}
@@ -522,6 +528,17 @@
   .kv{display:flex;flex-wrap:wrap;gap:7px 22px;font-size:12.5px;color:var(--muted)}
   .kv b{color:var(--navy)}
 
+  /* ---- Gráficos ----
+     Etiqueta flotante del gráfico de barras. Va anclada al centro de la
+     columna señalada y se centra sobre ella; `pointer-events:none` evita
+     que se interponga entre el cursor y la barra. */
+  .viz-tip{
+    position:absolute;top:4px;transform:translateX(-50%);white-space:nowrap;pointer-events:none;
+    background:rgba(255,255,255,.96);border:1px solid var(--g-brd);border-radius:11px;
+    padding:7px 11px;font-size:12px;color:var(--ink-2);box-shadow:var(--sh-2),var(--g-hi);z-index:5
+  }
+  .viz-tip b{color:var(--navy)}
+
   /* Panel de permisos */
   .perm-table td:first-child{font-weight:700;color:var(--navy)}
   .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 9px;
@@ -683,11 +700,18 @@
    CONFIGURACIÓN  ·  Reemplaza SOLO estos dos valores por los de tu
    proyecto (Supabase -> Project Settings -> API).
    NUNCA pongas aquí la service_role_key: en el frontend va la anon key.
+
+   MIGRACIONES QUE ESPERA ESTA VERSIÓN (Supabase -> SQL Editor):
+     migracion_tipo_empleado.sql  → clasificación administrativo/asistencial
+     migracion_v10.sql            → grupos de personal (Empleados/Médicos/
+                                    Aprendices) y periodos de vacaciones
+   Si falta alguna, la aplicación sigue funcionando y lo avisa en pantalla
+   en vez de romperse; pero esas funciones quedan a medias.
    ===================================================================== */
 const SUPABASE_URL      = "https://bemhrdkcrihjdkzfmtgf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlbWhyZGtjcmloamRremZtdGdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE5MjUsImV4cCI6MjEwMTg1NzkyNX0.9GUikIKf9B_H3TdmpJxLBiwNxDdu6putQ2iXhQPghck";
 
-const APP_VERSION = "v9 · liquid-glass · permisos declarativos";
+const APP_VERSION = "v10 · grupos de personal · vacaciones por periodo · estadísticas";
 
 /* Logotipo oficial: PNG blanco sobre fondo transparente (1536×308). Por eso
    siempre se dibuja sobre una placa azul. Si el archivo remoto no carga
@@ -702,8 +726,12 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
-/* ------------------------- Helpers de fecha ------------------------- */
-const todayISO = () => new Date().toISOString().slice(0,10);
+/* ------------------------- Helpers de fecha -------------------------
+   Todo se maneja en fecha LOCAL. `toISOString()` convierte a UTC, así que
+   en Colombia (UTC-5) devolvía el día siguiente a partir de las 7 p. m.:
+   por eso el día se compone a mano desde los campos locales. */
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const todayISO = () => isoOf(new Date());
 const fmt = (iso) => { if(!iso) return "—"; const [y,m,d]=iso.slice(0,10).split("-"); return `${d}/${m}/${y}`; };
 const fmtDateTime = (ts) => { if(!ts) return "—"; const d=new Date(ts); return d.toLocaleString("es-CO",{dateStyle:"short",timeStyle:"short"}); };
 const daysBetween = (a,b) => { if(!a||!b) return 0; const s=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00");
@@ -712,10 +740,95 @@ const diffDays = (a,b) => { const s=new Date(a+"T00:00:00"),e=new Date(b+"T00:00
 const monthsBetween = (start,end) => { if(!start) return 0; const s=new Date(start+"T00:00:00");
   const e=end?new Date(end+"T00:00:00"):new Date(); let m=(e.getFullYear()-s.getFullYear())*12+(e.getMonth()-s.getMonth());
   if(e.getDate()<s.getDate()) m-=1; return Math.max(0,m); };
-const vacacionesCausadas = (ingreso,retiro) => Math.round(monthsBetween(ingreso,retiro)*1.25*10)/10;
 const proximoAniversario = (ingreso) => { if(!ingreso) return null; const ing=new Date(ingreso+"T00:00:00");
   const t=new Date(todayISO()+"T00:00:00"); let n=new Date(t.getFullYear(),ing.getMonth(),ing.getDate());
-  if(n<t) n.setFullYear(n.getFullYear()+1); return n.toISOString().slice(0,10); };
+  if(n<t) n.setFullYear(n.getFullYear()+1); return isoOf(n); };
+const addYears   = (iso,n) => { const d=new Date(iso+"T00:00:00"); d.setFullYear(d.getFullYear()+n); return isoOf(d); };
+const addDaysISO = (iso,n) => { const d=new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return isoOf(d); };
+
+/* =====================================================================
+   DÍAS HÁBILES DE VACACIONES
+   Regla del centro: el personal ADMINISTRATIVO descansa sábado y domingo
+   (semana de lunes a viernes) y el ASISTENCIAL solo domingo (lunes a
+   sábado). Las vacaciones SIEMPRE se descuentan en días hábiles, nunca
+   corridos, así que el cálculo depende de la clasificación del empleado.
+   Sin clasificar se asume lunes a viernes: es el criterio que consume
+   menos saldo por cada día de calendario, es decir el más conservador.
+   ===================================================================== */
+const WORK_WEEK       = { administrativo:5, asistencial:6 };   // último día laboral (1=lunes)
+const WORK_WEEK_LABEL = { administrativo:"lunes a viernes", asistencial:"lunes a sábado" };
+const lastWorkDay   = (tipo) => WORK_WEEK[tipo] || 5;
+const workWeekLabel = (tipo) => WORK_WEEK_LABEL[tipo] || "lunes a viernes (sin clasificar)";
+const isWorkday = (date,tipo) => { const d=date.getDay(); return d>=1 && d<=lastWorkDay(tipo); };
+/* Días hábiles entre dos fechas, ambas incluidas. */
+const businessDays = (a,b,tipo) => {
+  if(!a||!b) return 0;
+  const s=new Date(a+"T00:00:00"), e=new Date(b+"T00:00:00");
+  if(isNaN(s)||isNaN(e)||e<s) return 0;
+  if((e-s)/86400000 > 3660) return 0;      // rango absurdo: no se cuenta
+  let n=0;
+  for(const d=new Date(s); d<=e; d.setDate(d.getDate()+1)) if(isWorkday(d,tipo)) n++;
+  return n;
+};
+
+/* =====================================================================
+   PERIODOS ANUALES DE VACACIONES
+   Cada periodo va del aniversario de ingreso al día anterior al siguiente
+   aniversario: quien ingresó el 01/03/2023 tiene 2023-2024 (01/03/2023 →
+   29/02/2024), 2024-2025, 2025-2026… Por cada año cumplido se causan 15
+   días hábiles (CST art. 186) y el empleador tiene el año siguiente al
+   cierre del periodo para concederlas: ese es el plazo de vencimiento.
+   ===================================================================== */
+const DIAS_POR_PERIODO = 15;
+/* Devuelve los periodos del más reciente al más antiguo. */
+function vacationPeriods(hireDate, terminationDate){
+  if(!hireDate) return [];
+  const hoy  = todayISO();
+  // Tras el retiro no se causan periodos nuevos.
+  const tope = (terminationDate && terminationDate < hoy) ? terminationDate : hoy;
+  if(hireDate > tope) return [];
+  const out = [];
+  for(let i=0;i<80;i++){
+    const start = addYears(hireDate,i);
+    if(start > tope) break;                        // aún no ha empezado
+    const end = addDaysISO(addYears(hireDate,i+1),-1);
+    const cumplido = end <= tope;
+    out.push({
+      index:i, start, end,
+      label: start.slice(0,4)+"-"+end.slice(0,4),
+      cumplido,
+      // En el periodo en curso se causan 1,25 días por mes trabajado.
+      causados: cumplido ? DIAS_POR_PERIODO
+                         : Math.min(DIAS_POR_PERIODO, Math.round(monthsBetween(start,tope)*1.25*10)/10),
+      deadline: addYears(end,1),                   // plazo legal para concederlas
+    });
+  }
+  return out.reverse();
+}
+/* Días causados en total: 15 por cada periodo cumplido más el prorrateo del
+   periodo en curso. Es la ÚNICA definición de "causados" en la aplicación,
+   para que el resumen, el listado de vacaciones y el expediente coincidan. */
+const diasCausados = (hireDate, terminationDate) =>
+  Math.round(vacationPeriods(hireDate,terminationDate).reduce((s,p)=>s+p.causados,0)*10)/10;
+
+/* Estado de un periodo según los días ya disfrutados en él. */
+function periodStatus(p, tomados){
+  if(!p.cumplido)                      return { key:"en_curso",   label:"En curso",          cls:"b-sky"   };
+  if(tomados >= p.causados-0.01)       return { key:"disfrutado", label:"Disfrutado",        cls:"b-green" };
+  const r = diffDays(todayISO(), p.deadline);
+  if(r < 0)                            return { key:"vencido",    label:"Vencido",           cls:"b-red"   };
+  if(r <= 90)                          return { key:"por_vencer", label:"Próximo a vencer",  cls:"b-amber" };
+  return { key:"pendiente", label: tomados>0 ? "Disfrute parcial" : "Pendiente", cls:"b-amber" };
+}
+/* A qué periodo pertenece un registro de vacaciones. Los guardados desde
+   v10 traen `period_start`; los anteriores se ubican por su fecha de inicio. */
+function periodOf(v, periods){
+  if(v.period_start){
+    const p = periods.find(x=>x.start===v.period_start);
+    if(p) return p;
+  }
+  return periods.find(x => v.start_date>=x.start && v.start_date<=x.end) || null;
+}
 const money = (v) => (v===null||v===undefined||v==="")?"—":new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(v);
 const esc = (s) => String(s??"");
 const cap = (s) => s ? s.charAt(0).toUpperCase()+s.slice(1) : s;
@@ -738,28 +851,93 @@ const EMPLOYEE_TYPES = { administrativo:"Administrativo", asistencial:"Asistenci
 const EMPLOYEE_TYPE_ICON = { administrativo:"clipboard", asistencial:"health" };
 const opts = (obj) => Object.entries(obj).map(([v,l]) => <option key={v} value={v}>{l}</option>);
 
+/* =====================================================================
+   GRUPOS DE PERSONAL  (columna `staff_group`, ver migracion_v10.sql)
+   Empleados, Médicos y Aprendices son la MISMA pantalla con distinto
+   filtro: comparten tabla, contratos, vacaciones, incapacidades y
+   documentos, así que el resumen y las estadísticas siguen viendo a todo
+   el personal. Lo único que cambia es el rótulo y, en Médicos, que no se
+   gestiona seguridad social (contratan por prestación de servicios y
+   cotizan como independientes).
+   ===================================================================== */
+const STAFF_GROUPS = {
+  empleado: { view:"empleados",  label:"Empleados",  singular:"empleado",  articulo:"el empleado",
+              ico:"users",     ss:true  },
+  medico:   { view:"medicos",    label:"Médicos",    singular:"médico",    articulo:"el médico",
+              ico:"health",    ss:false },
+  aprendiz: { view:"aprendices", label:"Aprendices", singular:"aprendiz",  articulo:"el aprendiz",
+              ico:"clipboard", ss:true  },
+};
+const GROUP_BY_VIEW = Object.fromEntries(Object.entries(STAFF_GROUPS).map(([k,v])=>[v.view,k]));
+const STAFF_LABELS = Object.fromEntries(Object.entries(STAFF_GROUPS).map(([k,v])=>[k,v.label]));
+
 /* ---------------------------------------------------------------------
-   Compatibilidad con bases anteriores a la migración `employee_type`.
-   Si la columna todavía no existe, PostgREST responde 42703 y ANULARÍA
-   todas las consultas de empleados. Se comprueba una sola vez y la app
-   sigue funcionando sin el campo en lugar de romperse.
+   Compatibilidad con bases a las que aún les falta alguna columna nueva
+   (`employee_type`, `staff_group`, los campos de periodo en `vacations`).
+   Si la columna no existe, PostgREST responde 42703 y ANULARÍA la consulta
+   entera, así que se comprueba antes de pedirla en un `select`.
+
+   Importante: un fallo de red o de permisos NO se memoriza como "la
+   columna no existe". Antes se cacheaba cualquier error y, a partir de
+   ahí, la clasificación se descartaba en silencio durante toda la sesión
+   — era la causa de que «administrativo/asistencial» no se guardara.
    --------------------------------------------------------------------- */
-let __empTypeProbe = null;
-function hasEmployeeType(){
-  if(!__empTypeProbe){
-    __empTypeProbe = sb.from("employees").select("employee_type").limit(1)
-      .then(r => !(r.error && (r.error.code === "42703" || /employee_type/i.test(r.error.message||""))))
-      .catch(() => false);
+const __colCache   = {};   // "tabla.columna" → true | false (solo resultados fiables)
+const __colPending = {};
+const isMissingColumn = (error, col) =>
+  !!error && (error.code === "42703" ||
+              (/column .* does not exist|does not exist/i.test(error.message||"") &&
+               new RegExp(col,"i").test(error.message||"")));
+
+function hasColumn(table, col){
+  const k = table+"."+col;
+  if(k in __colCache) return Promise.resolve(__colCache[k]);
+  if(!__colPending[k]){
+    __colPending[k] = (async ()=>{
+      try{
+        const r = await sb.from(table).select(col).limit(1);
+        if(!r.error){ __colCache[k] = true; return true; }
+        if(isMissingColumn(r.error, col)){ __colCache[k] = false; return false; }
+      }catch(_){ /* error de red: se reintenta en la siguiente llamada */ }
+      return true;   // ante la duda se asume presente y manda el servidor
+    })();
+    __colPending[k].then(()=>{ delete __colPending[k]; }, ()=>{ delete __colPending[k]; });
   }
-  return __empTypeProbe;
+  return __colPending[k];
 }
-/* Quita `employee_type` del payload si la base aún no lo soporta. */
-async function stripEmployeeType(payload){
-  if(payload.employee_type === undefined || await hasEmployeeType()) return { payload, stripped:false };
-  const clean = {...payload}; delete clean.employee_type;
-  return { payload:clean, stripped:true };
+const hasEmployeeType = () => hasColumn("employees","employee_type");
+const hasStaffGroup   = () => hasColumn("employees","staff_group");
+const hasVacPeriod    = () => hasColumn("vacations","period_start");
+
+/* Columnas opcionales de `employees`: las que pueden faltar si no se han
+   corrido las migraciones. Se intenta guardarlas SIEMPRE; solo si el
+   servidor las rechaza por inexistentes se reintenta sin ellas. */
+const OPTIONAL_EMP_COLS = ["employee_type","staff_group"];
+const MIGRATION_HINT = {
+  employee_type: "La clasificación no se guardó: falta la columna employee_type. Ejecuta migracion_tipo_empleado.sql en Supabase.",
+  staff_group:   "El grupo (Empleados/Médicos/Aprendices) no se guardó: falta la columna staff_group. Ejecuta migracion_v10.sql en Supabase.",
+};
+
+/* Inserta o actualiza en `employees` tolerando columnas nuevas ausentes.
+   Devuelve { data, dropped:[columnas que la base no aceptó] }. */
+async function saveEmployee(payload, id){
+  let body = {...payload};
+  const dropped = [];
+  for(let intento=0; intento<=OPTIONAL_EMP_COLS.length; intento++){
+    // En UPDATE no se pide `.select()`: devolver la fila exige permiso de
+    // lectura además del de escritura y haría fallar un guardado correcto.
+    const r = id
+      ? await sb.from("employees").update(body).eq("id",id)
+      : await sb.from("employees").insert(body).select("id").single();
+    if(!r.error) return { data: id ? {id} : r.data, dropped };
+    const falta = OPTIONAL_EMP_COLS.find(c => c in body && isMissingColumn(r.error,c));
+    if(!falta) throw r.error;
+    __colCache["employees."+falta] = false;
+    delete body[falta];
+    dropped.push(falta);
+  }
+  throw new Error("No fue posible guardar el registro del personal.");
 }
-const MIGRATION_HINT = "La clasificación no se guardó: falta la columna employee_type. Ejecuta migracion_tipo_empleado.sql en Supabase.";
 
 /* =====================================================================
    CONFIGURACIÓN DE DESARROLLO
@@ -1006,6 +1184,43 @@ function SegClasificacion({value, onChange, disabled}){
   );
 }
 
+/* =====================================================================
+   CATÁLOGOS COMPARTIDOS (áreas y entidades de seguridad social)
+   Los carga Workspace una sola vez. Se exponen por contexto porque ahora
+   cualquier formulario puede CREAR un área al escribirla, y entonces la
+   lista de sugerencias tiene que refrescarse en toda la aplicación.
+   ===================================================================== */
+const CatalogCtx = React.createContext({ departments:[], ssEntities:[], reloadCatalogs:()=>{} });
+function useCatalogs(){ return React.useContext(CatalogCtx); }
+
+/* El área se ESCRIBE. Antes era un <select> cerrado al catálogo, así que no
+   se podía registrar un área nueva sin tocar la base de datos. Ahora es un
+   campo de texto con sugerencias (<datalist>, que Workspace dibuja una sola
+   vez) y al guardar se resuelve contra `departments`: se reutiliza la que ya
+   exista o se crea. La columna sigue siendo una FK, de modo que el filtro
+   por área y los reportes no cambian. */
+function AreaInput({value, onChange, placeholder="Escribe el área…"}){
+  return <input list="th-areas" value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>;
+}
+
+/* Nombre de área escrito a mano → id en `departments`. */
+async function resolveDepartmentId(nombre, departments){
+  const n = (nombre||"").trim();
+  if(!n) return { id:null, creada:false };
+  const norm = (s)=> String(s||"").trim().toLowerCase();
+  const ya = (departments||[]).find(d=> norm(d.name)===norm(n));
+  if(ya) return { id:ya.id, creada:false };
+  const { data, error } = await sb.from("departments").insert({ name:n }).select("id").single();
+  if(error){
+    // Puede fallar porque otro usuario acabó de crear la misma área
+    // (name es único): en ese caso se usa la existente.
+    const r = await sb.from("departments").select("id").ilike("name",n).limit(1);
+    if(r.data && r.data.length) return { id:r.data[0].id, creada:false };
+    throw error;
+  }
+  return { id:data.id, creada:true };
+}
+
 /* Etiqueta de solo lectura para la clasificación. */
 function TipoBadge({value}){
   if(!EMPLOYEE_TYPES[value]) return null;
@@ -1225,20 +1440,50 @@ function GlobalSearch({onOpenEmployee}){
 /* =====================================================================
    DASHBOARD
    ===================================================================== */
+/* Lista emergente de un KPI: los mismos registros que se contaron en la
+   tarjeta, para poder verificar la cifra y abrir el expediente. */
+function KpiListModal({kpi, onClose, onOpenEmployee}){
+  return (
+    <Modal title={`${kpi.label} · ${kpi.rows.length}`} onClose={onClose} wide>
+      {kpi.hint && <p className="muted" style={{fontSize:12.5,margin:"0 0 12px"}}>{kpi.hint}</p>}
+      {kpi.rows.length===0 ? <Empty text="Este indicador no tiene registros."/> :
+        <div className="table-wrap"><table>
+          <thead><tr>{kpi.headers.map(h=><th key={h}>{h}</th>)}</tr></thead>
+          <tbody>{kpi.rows.map((r,i)=>(
+            <tr key={r.key||i} style={r.employeeId?null:{cursor:"default"}}
+              onClick={r.employeeId ? ()=>{ onOpenEmployee(r.employeeId, r.group); onClose(); } : undefined}>
+              {r.cells.map((c,j)=><td key={j}>{c}</td>)}
+            </tr>
+          ))}</tbody>
+        </table></div>}
+      {kpi.rows.length>0 && (
+        <p className="muted" style={{fontSize:12,marginTop:12}}>Toca una fila para abrir el expediente.</p>
+      )}
+    </Modal>
+  );
+}
+
 function Dashboard({profile, onOpenEmployee}){
+  const [kpi,setKpi] = useState(null);   // KPI abierto en la ventana emergente
+
   const s = useAsync(async ()=>{
-    const [stats, contratos, empleados, vacaciones, proximas] = await Promise.all([
-      sb.from("v_dashboard_stats").select("*").single(),
-      sb.from("contracts").select("id,employee_id,contract_number,end_date,status,employees(first_name,last_name)")
-        .eq("status","vigente").not("end_date","is",null).order("end_date",{ascending:true}).limit(200),
-      sb.from("employees").select("id,first_name,last_name,hire_date,termination_date,status").eq("status","activo"),
-      sb.from("vacations").select("employee_id,days,status"),
+    const withType  = await hasEmployeeType();
+    const withGroup = await hasStaffGroup();
+    const empCols = "id,first_name,last_name,document_number,position_title,status,hire_date,termination_date"
+      + (withType ? ",employee_type" : "") + (withGroup ? ",staff_group" : "");
+    const mesActual = todayISO().slice(0,7);
+    const [empleados, contratos, vacaciones, incapacidades] = await Promise.all([
+      sb.from("employees").select(empCols).order("first_name").limit(1000),
+      sb.from("contracts").select("id,employee_id,contract_number,type,start_date,end_date,status,employees(first_name,last_name)")
+        .order("end_date",{ascending:true}).limit(1000),
       sb.from("vacations").select("id,employee_id,start_date,end_date,days,status,employees(first_name,last_name)")
-        .gte("end_date",todayISO()).order("start_date",{ascending:true}).limit(8),
+        .order("start_date",{ascending:false}).limit(1000),
+      sb.from("disabilities").select("id,employee_id,type,start_date,end_date,days,entity,employees(first_name,last_name)")
+        .gte("start_date", mesActual+"-01").order("start_date",{ascending:false}).limit(500),
     ]);
-    if(stats.error) throw stats.error;
-    return { stats:stats.data, contratos:contratos.data||[], empleados:empleados.data||[],
-             vacaciones:vacaciones.data||[], proximas:proximas.data||[] };
+    for(const r of [empleados,contratos,vacaciones,incapacidades]) if(r.error) throw r.error;
+    return { empleados:empleados.data||[], contratos:contratos.data||[],
+             vacaciones:vacaciones.data||[], incapacidades:incapacidades.data||[] };
   }, []);
 
   if(s.loading) return <div><h2 className="section-title">Resumen</h2><SkeletonRows cols={4} rows={2}/></div>;
@@ -1252,51 +1497,107 @@ function Dashboard({profile, onOpenEmployee}){
     </div>
   );
 
-  const { stats:st, contratos, empleados, vacaciones, proximas } = s.data;
-  // Alertas contractuales
-  const alertContratos = contratos.map(c=>{
-    const r = diffDays(todayISO(), c.end_date);
-    return {...c, restantes:r};
-  }).filter(c=>c.restantes<=90).sort((a,b)=>a.restantes-b.restantes);
+  const { empleados, contratos, vacaciones, incapacidades } = s.data;
+  const hoy = todayISO();
+  const nombre = (e)=> e ? `${e.first_name} ${e.last_name}` : "—";
+  const nombreRel = (r)=> r.employees ? `${r.employees.first_name} ${r.employees.last_name}` : "—";
+  const grupoDe = (e)=> STAFF_LABELS[e.staff_group||"empleado"] || "Empleados";
+  const activos   = empleados.filter(e=>e.status==="activo");
+  const vigentes  = contratos.filter(c=>c.status==="vigente");
+  const mesActual = hoy.slice(0,7);
+  const incapsMes = incapacidades.filter(d=>d.start_date.slice(0,7)===mesActual);
 
-  // Alertas de vacaciones (saldo próximo a vencer)
+  /* Alertas contractuales */
+  const alertContratos = vigentes.filter(c=>c.end_date).map(c=>({...c, restantes:diffDays(hoy,c.end_date)}))
+    .filter(c=>c.restantes<=90).sort((a,b)=>a.restantes-b.restantes);
+
+  /* Alertas de vacaciones (saldo próximo a vencer) */
   const tomadasPorEmp = {};
-  vacaciones.forEach(v=>{ tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+ (v.status!=="rechazada"?v.days:0); });
-  const alertVac = empleados.map(e=>{
-    const causadas = vacacionesCausadas(e.hire_date, e.termination_date);
+  vacaciones.forEach(v=>{ if(v.status!=="rechazada") tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+v.days; });
+  const alertVac = activos.map(e=>{
+    const causadas = diasCausados(e.hire_date, e.termination_date);
     const saldo = Math.round((causadas-(tomadasPorEmp[e.id]||0))*10)/10;
     const aniv = proximoAniversario(e.hire_date);
-    const restantes = aniv? diffDays(todayISO(), aniv):999;
+    const restantes = aniv? diffDays(hoy,aniv):999;
     return {e, saldo, aniv, restantes};
   }).filter(x=>x.saldo>0 && x.restantes<=30 && x.restantes>=0).sort((a,b)=>a.restantes-b.restantes);
+
+  const proximas = vacaciones.filter(v=>v.end_date>=hoy).sort((a,b)=>a.start_date<b.start_date?-1:1).slice(0,8);
 
   const bandFor = (r)=> r<0?"a-red": r<=7?"a-red": r<=30?"a-amber":"a-sky";
   const textFor = (r)=> r<0?`Vencido hace ${-r} día(s)`: r===0?"Vence hoy": r===1?"Vence mañana":`Vence en ${r} día(s)`;
 
-  /* Tarjeta KPI: etiqueta, cifra y mosaico de icono (estilo Argon en vidrio) */
-  const Stat = ({l,n,color,tone,ico})=>(
-    <div className="card stat">
-      <div style={{minWidth:0}}>
-        <div className="l">{l}</div>
-        <div className="n" style={{color}}>{n}</div>
+  /* ---- Definición de cada KPI: la cifra y la lista salen del MISMO
+     conjunto de registros, así que el número y la ventana nunca se
+     contradicen. ---- */
+  const filaPersona = (e)=>({
+    key:e.id, employeeId:e.id, group:e.staff_group,
+    cells:[<b>{nombre(e)}</b>, e.document_number, e.position_title||"—", grupoDe(e),
+           EMPLOYEE_TYPES[e.employee_type]||"—", fmt(e.hire_date),
+           e.termination_date?fmt(e.termination_date):<Badge status={e.status}/>],
+  });
+  const headPersona = ["Nombre","Cédula","Cargo","Grupo","Clasificación","Ingreso","Estado"];
+  const filaContrato = (c)=>({
+    key:c.id, employeeId:c.employee_id,
+    cells:[<b>{nombreRel(c)}</b>, c.contract_number, CONTRACT_TYPES[c.type]||c.type,
+           fmt(c.start_date), fmt(c.end_date),
+           c.end_date ? textFor(diffDays(hoy,c.end_date)) : "Sin fecha de fin"],
+  });
+  const headContrato = ["Empleado","Contrato","Tipo","Inicio","Fin","Situación"];
+
+  const KPIS = [
+    { id:"activos", label:"Empleados activos", color:"var(--green)", tone:"green", ico:"users",
+      hint:"Todo el personal con estado activo (empleados, médicos y aprendices).",
+      headers:headPersona, rows:activos.map(filaPersona) },
+    { id:"retirados", label:"Retirados", color:"var(--red)", tone:"red", ico:"logout",
+      hint:"Personal con fecha de retiro registrada.",
+      headers:headPersona, rows:empleados.filter(e=>e.status==="retirado").map(filaPersona) },
+    { id:"cvigentes", label:"Contratos vigentes", color:"var(--navy)", tone:"navy", ico:"contract",
+      headers:headContrato, rows:vigentes.map(filaContrato) },
+    { id:"cvencer", label:"Contratos por vencer (30d)", color:"var(--amber)", tone:"amber", ico:"clock",
+      hint:"Contratos vigentes cuya fecha de terminación cae en los próximos 30 días.",
+      headers:headContrato,
+      rows:vigentes.filter(c=>c.end_date && diffDays(hoy,c.end_date)>=0 && diffDays(hoy,c.end_date)<=30).map(filaContrato) },
+    { id:"cvencidos", label:"Contratos vencidos", color:"var(--red)", tone:"red", ico:"alert",
+      hint:"Contratos que siguen marcados como vigentes pero su fecha de terminación ya pasó.",
+      headers:headContrato,
+      rows:vigentes.filter(c=>c.end_date && diffDays(hoy,c.end_date)<0).map(filaContrato) },
+    { id:"vacaciones", label:"Vacaciones vigentes", color:"var(--sky)", tone:"sky", ico:"beach",
+      hint:"Periodos de vacaciones en curso o programados (fecha de fin de hoy en adelante).",
+      headers:["Empleado","Inicio","Fin","Días hábiles","Estado"],
+      rows:vacaciones.filter(v=>v.end_date>=hoy).map(v=>({
+        key:v.id, employeeId:v.employee_id,
+        cells:[<b>{nombreRel(v)}</b>, fmt(v.start_date), fmt(v.end_date), v.days, <Badge status={v.status}/>],
+      })) },
+    { id:"incapacidades", label:"Incapacidades del mes", color:"var(--navy)", tone:"teal", ico:"health",
+      hint:"Incapacidades y licencias que iniciaron en el mes en curso.",
+      headers:["Empleado","Tipo","Inicio","Fin","Días","Entidad"],
+      rows:incapsMes.map(d=>({
+        key:d.id, employeeId:d.employee_id,
+        cells:[<b>{nombreRel(d)}</b>, DIS_TYPES[d.type]||d.type, fmt(d.start_date), fmt(d.end_date), d.days, d.entity||"—"],
+      })) },
+  ];
+
+  /* Tarjeta KPI: etiqueta, cifra y mosaico de icono. Es un botón: abre la
+     lista de los registros que componen la cifra. */
+  const Stat = ({k})=>(
+    <button type="button" className="card stat statbtn" onClick={()=>setKpi(k)}
+      aria-label={`Ver la lista de ${k.label.toLowerCase()}`}>
+      <div style={{minWidth:0,textAlign:"left"}}>
+        <div className="l">{k.label}</div>
+        <div className="n" style={{color:k.color}}>{k.rows.length}</div>
       </div>
-      <div className={"kpi-ico ico-"+tone}><Icon name={ico}/></div>
-    </div>
+      <div className={"kpi-ico ico-"+k.tone}><Icon name={k.ico}/></div>
+    </button>
   );
 
   return (
     <div>
       <h2 className="section-title">Resumen</h2>
       <div className="grid stats" style={{marginBottom:24}}>
-        <Stat l="Empleados activos"          n={st.empleados_activos}     color="var(--green)" tone="green" ico="users"/>
-        <Stat l="Retirados"                  n={st.empleados_retirados}   color="var(--red)"   tone="red"   ico="logout"/>
-        <Stat l="Contratos vigentes"         n={st.contratos_vigentes}    color="var(--navy)"  tone="navy"  ico="contract"/>
-        <Stat l="Contratos por vencer (30d)" n={st.contratos_por_vencer}  color="var(--amber)" tone="amber" ico="clock"/>
-        <Stat l="Contratos vencidos"         n={st.contratos_vencidos}    color="var(--red)"   tone="red"   ico="alert"/>
-        <Stat l="Vacaciones vigentes"        n={st.vacaciones_vigentes}   color="var(--sky)"   tone="sky"   ico="beach"/>
-        <Stat l="Incapacidades del mes"      n={st.incapacidades_mes}     color="var(--navy)"  tone="teal"  ico="health"/>
-        <Stat l="Novedades pendientes"       n={st.novedades_pendientes}  color="var(--amber)" tone="amber" ico="clipboard"/>
+        {KPIS.map(k=><Stat key={k.id} k={k}/>)}
       </div>
+      {kpi && <KpiListModal kpi={kpi} onClose={()=>setKpi(null)} onOpenEmployee={onOpenEmployee}/>}
 
       <h2 className="section-title">Centro de alertas</h2>
       {(alertContratos.length===0 && alertVac.length===0)
@@ -1346,58 +1647,61 @@ function Dashboard({profile, onOpenEmployee}){
 /* =====================================================================
    EMPLEADOS (lista)
    ===================================================================== */
-const emptyEmp = ()=>({
+const emptyEmp = (group="empleado")=>({
   first_name:"", last_name:"", document_type:"CC", document_number:"", birth_date:"", gender:"",
-  email:"", phone:"", address:"", city:"", department_id:"", position_title:"", employee_type:"", hire_date:todayISO(),
+  email:"", phone:"", address:"", city:"", area_name:"", position_title:"", employee_type:"",
+  staff_group:group, hire_date:todayISO(),
   termination_date:"", salary:"", bank_name:"", bank_account:"", emergency_contact:"", emergency_phone:"", notes:""
 });
 
-const empToForm = (e)=>({
+const empToForm = (e, departments)=>({
   id:e.id, first_name:e.first_name||"", last_name:e.last_name||"", document_type:e.document_type||"CC",
   document_number:e.document_number||"", birth_date:e.birth_date||"", gender:e.gender||"",
   email:e.email||"", phone:e.phone||"", address:e.address||"", city:e.city||"",
-  department_id:e.department_id||"", position_title:e.position_title||"", employee_type:e.employee_type||"",
+  area_name:((departments||[]).find(d=>d.id===e.department_id)||{}).name||"",
+  position_title:e.position_title||"", employee_type:e.employee_type||"",
+  staff_group:e.staff_group||"empleado",
   hire_date:e.hire_date||todayISO(),
   termination_date:e.termination_date||"", salary:e.salary!=null?e.salary:"", bank_name:e.bank_name||"",
   bank_account:e.bank_account||"", emergency_contact:e.emergency_contact||"", emergency_phone:e.emergency_phone||"", notes:e.notes||""
 });
 
-/* Formulario reutilizable de empleado: crea (sin id) o edita (con id) */
-function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
+/* Formulario reutilizable de personal: crea (sin id) o edita (con id).
+   Sirve igual para Empleados, Médicos y Aprendices: el grupo se elige en el
+   propio formulario, así que también permite mover una ficha de pantalla. */
+function EmployeeFormModal({initial, profile, onClose, onSaved}){
+  const { departments, reloadCatalogs } = useCatalogs();
   const [form,setForm] = useState(initial);
   const [busy,setBusy] = useState(false);
   const toast = useToast();
   const isEdit = !!initial.id;
+  const cfg = STAFF_GROUPS[form.staff_group] || STAFF_GROUPS.empleado;
   const set = (k)=>(e)=>setForm({...form,[k]:e.target.value});
 
   const save = async ()=>{
     if(!form.first_name.trim()||!form.last_name.trim()||!form.document_number.trim()){ toast("Nombre, apellido y cédula son obligatorios.","err"); return; }
     setBusy(true);
     try{
-      let payload = {...form};
-      ["department_id","birth_date","termination_date","salary","employee_type"].forEach(k=>{ if(payload[k]==="") payload[k]=null; });
+      // El área se escribe: se reutiliza la existente o se crea.
+      const area = await resolveDepartmentId(form.area_name, departments);
+      const payload = {...form};
+      delete payload.area_name; delete payload.id;
+      payload.department_id = area.id;
+      ["birth_date","termination_date","salary","employee_type"].forEach(k=>{ if(payload[k]==="") payload[k]=null; });
       payload.status = payload.termination_date ? "retirado" : "activo";
-      const clean = await stripEmployeeType(payload);
-      payload = clean.payload;
-      let error;
-      if(isEdit){
-        const id = payload.id; delete payload.id;
-        ({ error } = await sb.from("employees").update(payload).eq("id",id));
-      }else{
-        payload.created_by = profile.id;
-        ({ error } = await sb.from("employees").insert(payload));
-      }
-      if(error) throw error;
-      toast(isEdit?"Empleado actualizado.":"Empleado registrado correctamente.","ok");
-      if(clean.stripped && form.employee_type) toast(MIGRATION_HINT,"info");
+      if(!isEdit) payload.created_by = profile.id;
+      const { dropped } = await saveEmployee(payload, isEdit ? initial.id : null);
+      toast(isEdit ? `Ficha de ${cfg.singular} actualizada.` : `Registro de ${cfg.singular} creado correctamente.`, "ok");
+      dropped.forEach(c=>{ if(MIGRATION_HINT[c]) toast(MIGRATION_HINT[c],"info"); });
+      if(area.creada){ toast(`Se creó el área «${form.area_name.trim()}».`,"info"); reloadCatalogs(); }
       onSaved && onSaved(); onClose();
     }catch(e){ toast(friendlyError(e),"err"); }
     finally{ setBusy(false); }
   };
 
   return (
-    <Modal title={isEdit?"Editar empleado":"Nuevo empleado"} onClose={onClose} wide footer={<React.Fragment>
-        <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}{isEdit?"Guardar cambios":"Registrar empleado"}</button>
+    <Modal title={isEdit?`Editar ${cfg.singular}`:`Nuevo ${cfg.singular}`} onClose={onClose} wide footer={<React.Fragment>
+        <button className="btn accent" disabled={busy} onClick={save}>{busy?<span className="spinner"/>:<Icon name="check"/>}{isEdit?"Guardar cambios":"Registrar"}</button>
         <button className="btn ghost" onClick={onClose}>Cancelar</button>
       </React.Fragment>}>
       <div className="grid form-grid">
@@ -1411,8 +1715,9 @@ function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
         <Field label="Teléfono"><input value={form.phone} onChange={set("phone")}/></Field>
         <Field label="Dirección"><input value={form.address} onChange={set("address")}/></Field>
         <Field label="Ciudad"><input value={form.city} onChange={set("city")}/></Field>
-        <Field label="Área"><select value={form.department_id} onChange={set("department_id")}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+        <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>
         <Field label="Cargo"><input value={form.position_title} onChange={set("position_title")}/></Field>
+        <Field label="Grupo"><select value={form.staff_group} onChange={set("staff_group")}>{opts(STAFF_LABELS)}</select></Field>
         <FieldBox label="Clasificación">
           <SegClasificacion value={form.employee_type} onChange={(v)=>setForm({...form,employee_type:v})}/>
         </FieldBox>
@@ -1425,11 +1730,22 @@ function EmployeeFormModal({initial, departments, profile, onClose, onSaved}){
         <Field label="Tel. emergencia"><input value={form.emergency_phone} onChange={set("emergency_phone")}/></Field>
       </div>
       <Field label="Notas"><textarea value={form.notes} onChange={set("notes")}/></Field>
+      <p className="muted" style={{fontSize:12,marginTop:10}}>
+        La clasificación decide cómo se cuentan las vacaciones: administrativo de {WORK_WEEK_LABEL.administrativo},
+        asistencial de {WORK_WEEK_LABEL.asistencial}.
+      </p>
     </Modal>
   );
 }
 
-function Empleados({profile, departments, onOpenEmployee}){
+/* =====================================================================
+   PERSONAL (lista) · una sola pantalla para los tres grupos
+   `group` es 'empleado' | 'medico' | 'aprendiz'. Cambia el rótulo y el
+   filtro; el resto —búsqueda, alta rápida, ficha completa— es idéntico.
+   ===================================================================== */
+function Staff({group, profile, onOpenEmployee}){
+  const cfg = STAFF_GROUPS[group] || STAFF_GROUPS.empleado;
+  const { departments, reloadCatalogs } = useCatalogs();
   const write = can(profile, "employees", "write");
   const toast = useToast();
   const [q,setQ] = useState("");
@@ -1438,28 +1754,28 @@ function Empleados({profile, departments, onOpenEmployee}){
   const tmr = useRef(null);
   const [term,setTerm] = useState("");
 
-  const blank = { nombre:"", document_number:"", cargo:"", ciudad:"", employee_type:"", hire_date:todayISO(),
-    termination_date:"", contract_type:"termino_fijo", end_date:"" };
+  const blank = { nombre:"", document_number:"", cargo:"", ciudad:"", area_name:"", employee_type:"",
+    hire_date:todayISO(), termination_date:"", contract_type:"termino_fijo", end_date:"" };
   const [form,setForm] = useState(blank);
   const [busy,setBusy] = useState(false);
 
   useEffect(()=>{ if(tmr.current)clearTimeout(tmr.current); tmr.current=setTimeout(()=>setTerm(q.trim().replace(/[,()*%]/g," ")),300); },[q]);
 
   const data = useAsync(async ()=>{
-    // `employee_type` solo se pide si la base ya tiene la columna; pedirla sin
+    // Las columnas nuevas solo se piden si la base ya las tiene: pedirlas sin
     // migrar haría fallar toda la consulta con 42703.
-    const withType = await hasEmployeeType();
-    const cols = "id,first_name,last_name,document_number,position_title,city,department_id,status,hire_date"
-      + (withType ? ",employee_type" : "");
-    let query = sb.from("employees")
-      .select(cols)
-      .order("first_name",{ascending:true}).limit(300);
+    const withType  = await hasEmployeeType();
+    const withGroup = await hasStaffGroup();
+    const cols = "id,first_name,last_name,document_number,position_title,city,department_id,status,hire_date,termination_date"
+      + (withType ? ",employee_type" : "") + (withGroup ? ",staff_group" : "");
+    let query = sb.from("employees").select(cols).order("first_name",{ascending:true}).limit(500);
+    if(withGroup) query = query.eq("staff_group", group);
     if(term) query = query.or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,document_number.ilike.%${term}%`);
     if(dep) query = query.eq("department_id", dep);
     const { data, error } = await query;
     if(error) throw error;
-    return data;
-  }, [term, dep]);
+    return { rows:data||[], withGroup };
+  }, [term, dep, group]);
 
   const depName = (id)=> (departments.find(d=>d.id===id)||{}).name || "—";
 
@@ -1470,27 +1786,29 @@ function Empleados({profile, departments, onOpenEmployee}){
       const p = form.nombre.trim().split(/\s+/); const mid = Math.ceil(p.length/2);
       const first_name = p.slice(0,mid).join(" ");
       const last_name  = p.slice(mid).join(" ") || first_name;
+      const area = await resolveDepartmentId(form.area_name, departments);
       const empPayload = {
         first_name, last_name, document_number:form.document_number.trim(),
         position_title:form.cargo||null, city:form.ciudad||null,
+        department_id:area.id,
         employee_type:form.employee_type||null,
+        staff_group:group,
         hire_date:form.hire_date, termination_date:form.termination_date||null,
         status: form.termination_date ? "retirado" : "activo", created_by:profile.id
       };
-      const clean = await stripEmployeeType(empPayload);
-      const { data:emp, error } = await sb.from("employees").insert(clean.payload).select("id").single();
-      if(error) throw error;
-      if(clean.stripped && form.employee_type) toast(MIGRATION_HINT,"info");
+      const { data:emp, dropped } = await saveEmployee(empPayload, null);
+      dropped.forEach(c=>{ if(MIGRATION_HINT[c]) toast(MIGRATION_HINT[c],"info"); });
+      if(area.creada){ toast(`Se creó el área «${form.area_name.trim()}».`,"info"); reloadCatalogs(); }
       // Contrato inicial (el tipo/fecha fin viven en la tabla contracts)
       if(form.contract_type && emp){
         const cPayload = {
           employee_id:emp.id, contract_number:"CT-"+form.document_number.trim()+"-1",
           type:form.contract_type, start_date:form.hire_date,
           end_date: form.contract_type==="termino_fijo" ? (form.end_date||null) : null,
-          position_title:form.cargo||null, status:"vigente", created_by:profile.id
+          position_title:form.cargo||null, department_id:area.id, status:"vigente", created_by:profile.id
         };
         const { error:cErr } = await sb.from("contracts").insert(cPayload);
-        if(cErr) toast("Empleado creado. El contrato inicial no se guardó: "+friendlyError(cErr),"info");
+        if(cErr) toast("Registro creado. El contrato inicial no se guardó: "+friendlyError(cErr),"info");
       }
       toast("Ingreso registrado correctamente.","ok");
       setForm(blank); data.reload();
@@ -1501,7 +1819,7 @@ function Empleados({profile, departments, onOpenEmployee}){
   return (
     <div>
       <div className="page-head">
-        <h2 className="section-title" style={{margin:0}}>Empleados</h2>
+        <h2 className="section-title" style={{margin:0}}>{cfg.label}</h2>
         {write && <button className="btn ghost" onClick={()=>setShowForm(true)}><Icon name="plus"/>Ficha completa (área, salario, banco…)</button>}
       </div>
 
@@ -1512,13 +1830,21 @@ function Empleados({profile, departments, onOpenEmployee}){
         </Notice>
       )}
 
+      {!data.loading && !data.error && !data.data.withGroup && (
+        <Notice kind="amber" icon="alert">
+          Falta la columna <code>staff_group</code>: por eso Empleados, Médicos y Aprendices muestran
+          la misma lista. Ejecuta <code>migracion_v10.sql</code> en Supabase para separarlas.
+        </Notice>
+      )}
+
       {write && (
         <div className="card" style={{marginBottom:22}}>
-          <h3 className="section-title" style={{marginBottom:14,fontSize:14}}>Nuevo ingreso</h3>
+          <h3 className="section-title" style={{marginBottom:14,fontSize:14}}>Nuevo ingreso · {cfg.label}</h3>
           <div className="grid form-grid">
             <Field label="Nombre completo"><input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Nombres y apellidos"/></Field>
             <Field label="Cédula"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})} placeholder="Número de cédula"/></Field>
             <Field label="Cargo"><input value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Cargo o puesto"/></Field>
+            <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>
             <Field label="Ciudad"><input value={form.ciudad} onChange={e=>setForm({...form,ciudad:e.target.value})} placeholder="Ciudad donde labora"/></Field>
             <FieldBox label="Clasificación">
               <SegClasificacion value={form.employee_type} onChange={(v)=>setForm({...form,employee_type:v})}/>
@@ -1547,12 +1873,12 @@ function Empleados({profile, departments, onOpenEmployee}){
 
       {data.loading ? <SkeletonRows cols={7} rows={5}/> :
        data.error ? <ErrorCard error={data.error} onRetry={data.reload}/> :
-       data.data.length===0 ? <Empty text="No hay empleados que coincidan con la búsqueda."/> :
+       data.data.rows.length===0 ? <Empty text={`No hay registros de ${cfg.label.toLowerCase()} que coincidan con la búsqueda.`}/> :
        <div className="table-wrap">
         <table>
-          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Clasificación</th><th>Área</th><th>Ciudad</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Clasificación</th><th>Área</th><th>Ciudad</th><th>Ingreso</th><th>Estado</th></tr></thead>
           <tbody>
-            {data.data.map(e=>(
+            {data.data.rows.map(e=>(
               <tr key={e.id} onClick={()=>onOpenEmployee(e.id)}>
                 <td><b>{e.first_name} {e.last_name}</b></td>
                 <td>{e.document_number}</td>
@@ -1560,6 +1886,7 @@ function Empleados({profile, departments, onOpenEmployee}){
                 <td>{EMPLOYEE_TYPES[e.employee_type] ? <TipoBadge value={e.employee_type}/> : "—"}</td>
                 <td>{depName(e.department_id)}</td>
                 <td>{e.city||"—"}</td>
+                <td>{fmt(e.hire_date)}</td>
                 <td><Badge status={e.status}/></td>
               </tr>
             ))}
@@ -1568,7 +1895,7 @@ function Empleados({profile, departments, onOpenEmployee}){
        </div>}
 
       {showForm && (
-        <EmployeeFormModal initial={emptyEmp()} departments={departments} profile={profile}
+        <EmployeeFormModal initial={emptyEmp(group)} profile={profile}
           onClose={()=>setShowForm(false)} onSaved={()=>data.reload()}/>
       )}
     </div>
@@ -1578,9 +1905,42 @@ function Empleados({profile, departments, onOpenEmployee}){
 /* =====================================================================
    EXPEDIENTE DEL EMPLEADO (con pestañas)
    ===================================================================== */
-function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack}){
+/* Retiro con FECHA EDITABLE: antes se forzaba la fecha de hoy y no había
+   forma de corregirla desde el expediente. */
+function RetiroModal({emp, onClose, onSaved}){
+  const toast = useToast();
+  const [fecha,setFecha] = useState(emp.termination_date || todayISO());
+  const [busy,setBusy] = useState(false);
+  const guardar = async ()=>{
+    if(!fecha){ toast("Indica la fecha de retiro.","err"); return; }
+    if(emp.hire_date && fecha < emp.hire_date){ toast("El retiro no puede ser anterior a la fecha de ingreso.","err"); return; }
+    setBusy(true);
+    try{
+      const { error } = await sb.from("employees").update({ termination_date:fecha, status:"retirado" }).eq("id",emp.id);
+      if(error) throw error;
+      toast("Fecha de retiro guardada.","ok"); onSaved(); onClose();
+    }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+  return (
+    <Modal title={emp.termination_date?"Editar fecha de retiro":"Marcar retiro"} onClose={onClose} footer={<React.Fragment>
+        <button className="btn accent" disabled={busy} onClick={guardar}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
+        <button className="btn ghost" onClick={onClose}>Cancelar</button>
+      </React.Fragment>}>
+      <p className="muted" style={{margin:"0 0 14px",fontSize:13}}>
+        {emp.first_name} {emp.last_name} · ingreso {fmt(emp.hire_date)}
+      </p>
+      <Field label="Fecha de retiro"><input type="date" value={fecha} onChange={e=>setFecha(e.target.value)}/></Field>
+      <p className="muted" style={{fontSize:12,marginTop:10}}>
+        La ficha queda con estado «Retirado». Para revertirlo usa «Reactivar», que borra la fecha.
+      </p>
+    </Modal>
+  );
+}
+
+function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, group}){
   const [tab,setTab] = useState("personal");
   const [showEdit,setShowEdit] = useState(false);
+  const [showRetiro,setShowRetiro] = useState(false);
   const [clasificando,setClasificando] = useState(false);
   const toast = useToast();
   const write = can(profile,"employees","write");
@@ -1604,12 +1964,6 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack})
   const e = emp.data;
   const depName = (id)=>(departments.find(d=>d.id===id)||{}).name||"—";
 
-  const marcarRetiro = async ()=>{
-    if(!confirm("¿Marcar retiro de "+e.first_name+" "+e.last_name+" con fecha de hoy?")) return;
-    const { error } = await sb.from("employees").update({termination_date:todayISO(), status:"retirado"}).eq("id",e.id);
-    if(error){ toast(friendlyError(error),"err"); return; }
-    toast("Empleado marcado como retirado.","ok"); emp.reload();
-  };
   const reactivar = async ()=>{
     const { error } = await sb.from("employees").update({termination_date:null, status:"activo"}).eq("id",e.id);
     if(error){ toast(friendlyError(error),"err"); return; }
@@ -1621,35 +1975,38 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack})
     if(error){ toast(friendlyError(error),"err"); return; }
     toast("Empleado eliminado.","ok"); onBack();
   };
-  /* Clasificar sin abrir la ficha completa: un toque desde el encabezado. */
+  /* Clasificar sin abrir la ficha completa: un toque desde el encabezado.
+     Se intenta guardar SIEMPRE; solo si el servidor dice que la columna no
+     existe se avisa de la migración (antes bastaba un error de red para que
+     la clasificación se descartara en silencio). */
   const clasificar = async (v)=>{
     if(clasificando) return;
     setClasificando(true);
     try{
-      const clean = await stripEmployeeType({ employee_type: v || null });
-      if(clean.stripped){ toast(MIGRATION_HINT,"info"); return; }
-      const { error } = await sb.from("employees").update(clean.payload).eq("id",e.id);
-      if(error) throw error;
+      const { dropped } = await saveEmployee({ employee_type: v || null }, e.id);
+      if(dropped.includes("employee_type")){ toast(MIGRATION_HINT.employee_type,"err"); return; }
       toast(v ? "Clasificado como "+EMPLOYEE_TYPES[v]+"." : "Clasificación retirada.","ok");
       emp.reload();
     }catch(err){ toast(friendlyError(err),"err"); }
     finally{ setClasificando(false); }
   };
 
+  // Los médicos no llevan seguridad social en el sistema (contratan por
+  // prestación de servicios y cotizan como independientes).
+  const cfg = STAFF_GROUPS[e.staff_group || group || "empleado"] || STAFF_GROUPS.empleado;
   const TABS = [
     {id:"personal",label:"Personal"},
     {id:"laboral",label:"Laboral"},
     {id:"contratos",label:"Contratos"},
-    {id:"seguridad",label:"Seguridad social"},
+    ...(cfg.ss ? [{id:"seguridad",label:"Seguridad social"}] : []),
     {id:"vacaciones",label:"Vacaciones"},
     {id:"incapacidades",label:"Incapacidades"},
     {id:"documentos",label:"Documentos"},
-    {id:"auditoria",label:"Auditoría"},
   ];
 
   return (
     <div>
-      <button className="btn ghost sm" onClick={onBack}><Icon name="back"/>Volver a empleados</button>
+      <button className="btn ghost sm" onClick={onBack}><Icon name="back"/>Volver a {cfg.label.toLowerCase()}</button>
       <div className="card" style={{margin:"14px 0 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:14,alignItems:"flex-start",minWidth:0}}>
           <div className="avatar" style={{width:48,height:48,borderRadius:16,fontSize:16}}>
@@ -1662,6 +2019,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack})
             <span>Cargo: <b>{e.position_title||"—"}</b></span>
             <span>Área: <b>{depName(e.department_id)}</b></span>
             <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
+            {e.termination_date && <span>Retiro: <b>{fmt(e.termination_date)}</b></span>}
           </div>
           {write && (
             <div style={{marginTop:14,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
@@ -1674,9 +2032,10 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack})
           {write && (
             <div className="rowbtns" style={{marginTop:14}}>
               <button className="btn ghost sm" onClick={()=>setShowEdit(true)}><Icon name="edit"/>Editar</button>
-              {e.status==="activo"
-                ? <button className="btn ghost sm" onClick={marcarRetiro}><Icon name="logout"/>Marcar retiro</button>
-                : <button className="btn ghost sm" onClick={reactivar}><Icon name="refresh"/>Reactivar</button>}
+              <button className="btn ghost sm" onClick={()=>setShowRetiro(true)}>
+                <Icon name={e.termination_date?"calendar":"logout"}/>{e.termination_date?"Editar fecha de retiro":"Marcar retiro"}
+              </button>
+              {e.status!=="activo" && <button className="btn ghost sm" onClick={reactivar}><Icon name="refresh"/>Reactivar</button>}
               {canDelete
                 ? <button className="btn danger sm" onClick={eliminar}><Icon name="trash"/>Eliminar</button>
                 : <button className="btn danger sm" disabled title={whyNot(profile,"employees","delete")+" Solo un administrador puede eliminar."}>
@@ -1703,11 +2062,13 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack})
       {tab==="vacaciones" && <TabVacaciones emp={e} profile={profile}/>}
       {tab==="incapacidades" && <TabIncapacidades employeeId={e.id} profile={profile}/>}
       {tab==="documentos" && <TabDocumentos employeeId={e.id} profile={profile}/>}
-      {tab==="auditoria" && <TabAuditoria recordId={e.id}/>}
 
       {showEdit && (
-        <EmployeeFormModal initial={empToForm(e)} departments={departments} profile={profile}
+        <EmployeeFormModal initial={empToForm(e, departments)} profile={profile}
           onClose={()=>setShowEdit(false)} onSaved={()=>emp.reload()}/>
+      )}
+      {showRetiro && (
+        <RetiroModal emp={e} onClose={()=>setShowRetiro(false)} onSaved={()=>emp.reload()}/>
       )}
     </div>
   );
@@ -1742,7 +2103,9 @@ function TabLaboral({e, depName, showSalary}){
     <div className="card">
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
         <Info label="Cargo" value={e.position_title}/>
+        <Info label="Grupo" value={STAFF_LABELS[e.staff_group||"empleado"]}/>
         <Info label="Clasificación" value={EMPLOYEE_TYPES[e.employee_type]}/>
+        <Info label="Semana laboral" value={cap(workWeekLabel(e.employee_type))}/>
         <Info label="Área" value={depName(e.department_id)}/>
         <Info label="Fecha de ingreso" value={fmt(e.hire_date)}/>
         <Info label="Fecha de retiro" value={fmt(e.termination_date)}/>
@@ -1760,6 +2123,7 @@ function TabLaboral({e, depName, showSalary}){
 
 /* ---------- Contratos + Otrosí ---------- */
 function TabContratos({employeeId, profile, departments}){
+  const { reloadCatalogs } = useCatalogs();
   const write = can(profile,"contracts","write");
   const showSalary = can(profile,"salary","read");
   const [showC,setShowC] = useState(false);
@@ -1775,9 +2139,11 @@ function TabContratos({employeeId, profile, departments}){
     return { contracts:contracts||[], adds };
   }, [employeeId]);
 
+  /* Sin «jefe inmediato» ni «fecha de firma»: no se usaban y ensuciaban la
+     ficha. Las columnas siguen en la base por compatibilidad. */
   const emptyC = ()=>({ contract_number:"", type:"termino_indefinido", start_date:todayISO(), end_date:"", salary:"",
-    position_title:"", department_id:"", immediate_boss:"", schedule:"tiempo_completo", status:"vigente",
-    observations:"", signature_date:"", renewal_date:"", termination_reason:"" });
+    position_title:"", area_name:"", schedule:"tiempo_completo", status:"vigente",
+    observations:"", renewal_date:"", termination_reason:"" });
   const [cf,setCf] = useState(emptyC());
   const [busy,setBusy] = useState(false);
 
@@ -1785,10 +2151,13 @@ function TabContratos({employeeId, profile, departments}){
     if(!cf.contract_number.trim()){ toast("El número de contrato es obligatorio.","err"); return; }
     setBusy(true);
     try{
-      const p = {...cf, employee_id:employeeId, created_by:profile.id};
-      ["end_date","salary","department_id","signature_date","renewal_date"].forEach(k=>{ if(p[k]==="") p[k]=null; });
+      const area = await resolveDepartmentId(cf.area_name, departments);
+      const p = {...cf, employee_id:employeeId, created_by:profile.id, department_id:area.id};
+      delete p.area_name;
+      ["end_date","salary","renewal_date"].forEach(k=>{ if(p[k]==="") p[k]=null; });
       const { error } = await sb.from("contracts").insert(p);
       if(error) throw error;
+      if(area.creada){ toast(`Se creó el área «${cf.area_name.trim()}».`,"info"); reloadCatalogs(); }
       toast("Contrato registrado.","ok"); setShowC(false); setCf(emptyC()); data.reload();
     }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
   };
@@ -1830,9 +2199,7 @@ function TabContratos({employeeId, profile, departments}){
                       <span>Fin: <b>{fmt(c.end_date)}</b></span>
                       <span>Cargo: <b>{c.position_title||"—"}</b></span>
                       <span>Jornada: <b>{SCHEDULES[c.schedule]||"—"}</b></span>
-                      <span>Jefe: <b>{c.immediate_boss||"—"}</b></span>
                       {showSalary && <span>Salario: <b>{money(c.salary)}</b></span>}
-                      <span>Firma: <b>{fmt(c.signature_date)}</b></span>
                       <span>Renovación: <b>{fmt(c.renewal_date)}</b></span>
                     </div>
                     {c.observations && <p className="muted" style={{margin:"8px 0 0",fontSize:12.5}}>{c.observations}</p>}
@@ -1875,11 +2242,9 @@ function TabContratos({employeeId, profile, departments}){
             <Field label="Fecha terminación"><input type="date" value={cf.end_date} onChange={e=>setCf({...cf,end_date:e.target.value})}/></Field>
             <Field label="Salario"><input type="number" value={cf.salary} onChange={e=>setCf({...cf,salary:e.target.value})}/></Field>
             <Field label="Cargo"><input value={cf.position_title} onChange={e=>setCf({...cf,position_title:e.target.value})}/></Field>
-            <Field label="Área"><select value={cf.department_id} onChange={e=>setCf({...cf,department_id:e.target.value})}><option value="">—</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
-            <Field label="Jefe inmediato"><input value={cf.immediate_boss} onChange={e=>setCf({...cf,immediate_boss:e.target.value})}/></Field>
+            <Field label="Área"><AreaInput value={cf.area_name} onChange={(v)=>setCf({...cf,area_name:v})}/></Field>
             <Field label="Jornada"><select value={cf.schedule} onChange={e=>setCf({...cf,schedule:e.target.value})}>{opts(SCHEDULES)}</select></Field>
             <Field label="Estado"><select value={cf.status} onChange={e=>setCf({...cf,status:e.target.value})}>{opts(CONTRACT_STATUS)}</select></Field>
-            <Field label="Fecha de firma"><input type="date" value={cf.signature_date} onChange={e=>setCf({...cf,signature_date:e.target.value})}/></Field>
             <Field label="Fecha de renovación"><input type="date" value={cf.renewal_date} onChange={e=>setCf({...cf,renewal_date:e.target.value})}/></Field>
           </div>
           <Field label="Motivo de terminación (si aplica)"><input value={cf.termination_reason} onChange={e=>setCf({...cf,termination_reason:e.target.value})}/></Field>
@@ -1922,20 +2287,44 @@ function TabSeguridad({employeeId, profile, ssEntities}){
     return { aff:aff.data||[], nov:nov.data||[] };
   }, [employeeId]);
 
-  const emptyF = ()=>({ kind:"eps", entity_id:"", affiliation_number:"", affiliation_date:"", status:"activa", withdrawal_date:"", risk_class:"", risk_level:"", observations:"" });
+  /* La entidad se ESCRIBE. Antes era un <select> limitado al catálogo
+     `social_security_entities`, así que no se podía registrar una EPS o una
+     caja que no estuviera precargada. Ahora es texto libre con sugerencias
+     filtradas por el TIPO seleccionado; si lo escrito coincide con una
+     entidad del catálogo se conserva además el vínculo (entity_id). */
+  const emptyF = ()=>({ id:null, kind:"eps", entity_name:"", affiliation_number:"", affiliation_date:"",
+    status:"activa", withdrawal_date:"", risk_class:"", risk_level:"", observations:"" });
+  const affToForm = (a)=>({ id:a.id, kind:a.kind,
+    entity_name: a.entity_name || ((ssEntities.find(x=>x.id===a.entity_id)||{}).name || ""),
+    affiliation_number:a.affiliation_number||"", affiliation_date:a.affiliation_date||"",
+    status:a.status||"activa", withdrawal_date:a.withdrawal_date||"",
+    risk_class:a.risk_class||"", risk_level:a.risk_level||"", observations:a.observations||"" });
   const [f,setF] = useState(emptyF());
   const [busy,setBusy] = useState(false);
+
   const saveAff = async ()=>{
+    const nombre = (f.entity_name||"").trim();
+    if(!nombre){ toast("Escribe el nombre de la entidad.","err"); return; }
     setBusy(true);
     try{
-      const ent = ssEntities.find(x=>x.id===f.entity_id);
-      const p = {...f, employee_id:employeeId, entity_name: ent?ent.name:null, created_by:profile.id};
-      ["entity_id","affiliation_date","withdrawal_date"].forEach(k=>{ if(p[k]==="") p[k]=null; });
-      // upsert por (employee_id, kind)
+      const norm = (s)=> String(s||"").trim().toLowerCase();
+      const ent = ssEntities.find(x=>x.kind===f.kind && norm(x.name)===norm(nombre));
+      const p = {...f, employee_id:employeeId, entity_name:nombre,
+                 entity_id: ent ? ent.id : null, created_by:profile.id};
+      if(!p.id) delete p.id;
+      ["affiliation_date","withdrawal_date","risk_class","risk_level","observations","affiliation_number"]
+        .forEach(k=>{ if(p[k]==="") p[k]=null; });
+      // upsert por (employee_id, kind): una afiliación vigente por tipo
       const { error } = await sb.from("employee_social_security").upsert(p, { onConflict:"employee_id,kind" });
       if(error) throw error;
       toast("Afiliación guardada.","ok"); setShowF(false); setF(emptyF()); data.reload();
     }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
+  };
+  const delAff = async (a)=>{
+    if(!confirm("¿Eliminar la afiliación de "+SS_KINDS[a.kind]+"?")) return;
+    const { error } = await sb.from("employee_social_security").delete().eq("id",a.id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Afiliación eliminada.","ok"); data.reload();
   };
 
   const emptyN = ()=>({ type:"ingreso", date:todayISO(), application_date:"", description:"", status:"pendiente" });
@@ -1967,12 +2356,12 @@ function TabSeguridad({employeeId, profile, ssEntities}){
           </div>
         : <Notice icon="lock">{whyNot(profile,"social_security","write")} Esta pestaña queda en modo consulta.</Notice>}
 
-      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:16}}>
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gap:12,marginBottom:16}}>
         {Object.keys(SS_KINDS).map(k=>{
           const a = byKind(k);
           return (
             <div key={k} className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                 <b>{SS_KINDS[k]}</b>{a && <Badge status={a.status}/>}
               </div>
               {a ? <div className="kv" style={{marginTop:8,flexDirection:"column",gap:4}}>
@@ -1983,6 +2372,15 @@ function TabSeguridad({employeeId, profile, ssEntities}){
                     {a.withdrawal_date && <span>Retiro: <b>{fmt(a.withdrawal_date)}</b></span>}
                   </div>
                 : <p className="muted" style={{fontSize:12.5,margin:"8px 0 0"}}>Sin información.</p>}
+              {write && (
+                <div className="rowbtns" style={{marginTop:12}}>
+                  <button className="btn ghost sm" onClick={()=>{ setF(a ? affToForm(a) : {...emptyF(), kind:k}); setShowF(true); }}>
+                    <Icon name={a?"edit":"plus"}/>{a?"Editar":"Registrar"}
+                  </button>
+                  {a && can(profile,"social_security","delete") &&
+                    <button className="btn ghost sm" style={{color:"var(--red)"}} onClick={()=>delAff(a)}><Icon name="trash"/>Quitar</button>}
+                </div>
+              )}
             </div>
           );
         })}
@@ -2001,13 +2399,18 @@ function TabSeguridad({employeeId, profile, ssEntities}){
         </table></div>}
 
       {showF && (
-        <Modal title="Afiliación de seguridad social" onClose={()=>setShowF(false)} footer={<React.Fragment>
+        <Modal title={(f.id?"Editar":"Registrar")+" afiliación · "+SS_KINDS[f.kind]} onClose={()=>setShowF(false)} footer={<React.Fragment>
             <button className="btn accent" disabled={busy} onClick={saveAff}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
             <button className="btn ghost" onClick={()=>setShowF(false)}>Cancelar</button>
           </React.Fragment>}>
           <div className="grid form-grid">
-            <Field label="Tipo"><select value={f.kind} onChange={e=>setF({...f,kind:e.target.value,entity_id:""})}>{opts(SS_KINDS)}</select></Field>
-            <Field label="Entidad"><select value={f.entity_id} onChange={e=>setF({...f,entity_id:e.target.value})}><option value="">—</option>{ssEntities.filter(x=>x.kind===f.kind).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+            {/* Cambiar el tipo limpia la entidad: las sugerencias dependen de él. */}
+            <Field label="Tipo"><select value={f.kind} onChange={e=>setF({...f,kind:e.target.value,entity_name:"",id:null})}>{opts(SS_KINDS)}</select></Field>
+            <Field label={"Entidad ("+SS_KINDS[f.kind]+")"}>
+              <input list="th-ss-entidades" value={f.entity_name}
+                onChange={e=>setF({...f,entity_name:e.target.value})}
+                placeholder={"Escribe la "+SS_KINDS[f.kind]}/>
+            </Field>
             <Field label="N° de afiliación"><input value={f.affiliation_number} onChange={e=>setF({...f,affiliation_number:e.target.value})}/></Field>
             <Field label="Fecha de afiliación"><input type="date" value={f.affiliation_date} onChange={e=>setF({...f,affiliation_date:e.target.value})}/></Field>
             <Field label="Estado"><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{opts(SS_STATUS)}</select></Field>
@@ -2015,8 +2418,16 @@ function TabSeguridad({employeeId, profile, ssEntities}){
             {f.kind==="arl" && <Field label="Clase de riesgo"><input value={f.risk_class} onChange={e=>setF({...f,risk_class:e.target.value})} placeholder="I - V"/></Field>}
             {f.kind==="arl" && <Field label="Nivel de riesgo"><input value={f.risk_level} onChange={e=>setF({...f,risk_level:e.target.value})}/></Field>}
           </div>
+          {/* Sugerencias del catálogo, filtradas por el tipo seleccionado.
+              Es una lista abierta: puedes escribir una entidad que no esté. */}
+          <datalist id="th-ss-entidades">
+            {ssEntities.filter(x=>x.kind===f.kind).map(x=><option key={x.id} value={x.name}/>)}
+          </datalist>
           <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
-          <p className="muted" style={{fontSize:12,margin:"8px 0 0"}}>Nota: guardar reemplaza la afiliación vigente de ese tipo (una activa por tipo).</p>
+          <p className="muted" style={{fontSize:12,margin:"8px 0 0"}}>
+            Todos los campos son editables. Guardar reemplaza la afiliación vigente de ese tipo (una por tipo).
+            La entidad se puede escribir aunque no esté en el catálogo.
+          </p>
         </Modal>
       )}
 
@@ -2038,34 +2449,58 @@ function TabSeguridad({employeeId, profile, ssEntities}){
   );
 }
 
-/* ---------- Vacaciones (por empleado) ---------- */
+/* ---------- Vacaciones (por empleado) ----------
+   Organizadas por PERIODO ANUAL, contado desde la fecha de ingreso: quien
+   entró en 2023 ve 2023-2024, 2024-2025 y 2025-2026, cada uno con su estado
+   (en curso, pendiente, próximo a vencer, vencido o disfrutado) y con las
+   fechas exactas en que tomó las vacaciones de ese periodo.
+   Los días son SIEMPRE hábiles según la clasificación del empleado. */
 function TabVacaciones({emp, profile}){
   const write = can(profile,"vacations");
   const [show,setShow] = useState(false);
   const toast = useToast();
+
   const data = useAsync(async ()=>{
-    const { data, error } = await sb.from("vacations").select("*").eq("employee_id",emp.id).order("start_date",{ascending:false});
-    if(error) throw error; return data;
+    const withPeriod = await hasVacPeriod();
+    const cols = "id,start_date,end_date,days,status,observations"
+      + (withPeriod ? ",period_start,period_end,business_days" : "");
+    const { data, error } = await sb.from("vacations").select(cols)
+      .eq("employee_id",emp.id).order("start_date",{ascending:false});
+    if(error) throw error;
+    return { rows:data||[], withPeriod };
   }, [emp.id]);
 
-  const empty = ()=>({ start_date:todayISO(), end_date:todayISO(), status:"aprobada", observations:"" });
+  const periods = useMemo(()=>vacationPeriods(emp.hire_date, emp.termination_date),
+                          [emp.hire_date, emp.termination_date]);
+
+  const empty = ()=>({ period_start: periods.length?periods[0].start:"",
+    start_date:todayISO(), end_date:todayISO(), status:"aprobada", observations:"" });
   const [f,setF] = useState(empty());
   const [busy,setBusy] = useState(false);
-  const dias = daysBetween(f.start_date, f.end_date);
+  const dias = businessDays(f.start_date, f.end_date, emp.employee_type);
+  const corridos = daysBetween(f.start_date, f.end_date);
 
   const save = async ()=>{
-    if(dias<=0){ toast("Rango de fechas inválido.","err"); return; }
+    if(corridos<=0){ toast("Rango de fechas inválido.","err"); return; }
+    if(dias<=0){ toast("El rango no contiene días hábiles ("+workWeekLabel(emp.employee_type)+").","err"); return; }
     setBusy(true);
     try{
       const p = { employee_id:emp.id, start_date:f.start_date, end_date:f.end_date, days:dias, status:f.status,
         observations:f.observations||null, created_by:profile.id, approved_by: f.status==="aprobada"?profile.id:null };
+      if(data.data.withPeriod){
+        const per = periods.find(x=>x.start===f.period_start);
+        if(per){ p.period_start = per.start; p.period_end = per.end; }
+        p.business_days = true;
+      }
       const { error } = await sb.from("vacations").insert(p);
       if(error) throw error;
-      toast("Vacaciones registradas.","ok"); setShow(false); setF(empty()); data.reload();
+      if(!data.data.withPeriod) toast("Guardado, pero sin periodo: falta ejecutar migracion_v10.sql en Supabase.","info");
+      toast("Vacaciones registradas: "+dias+" día(s) hábil(es).","ok");
+      setShow(false); setF(empty()); data.reload();
     }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
   };
   const del = async (id)=>{
-    if(!confirm("¿Eliminar este periodo de vacaciones?")) return;
+    if(!confirm("¿Eliminar este registro de vacaciones?")) return;
     const { error } = await sb.from("vacations").delete().eq("id",id);
     if(error){ toast(friendlyError(error),"err"); return; }
     toast("Registro eliminado.","ok"); data.reload();
@@ -2073,29 +2508,104 @@ function TabVacaciones({emp, profile}){
 
   if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
   if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
+  const { rows, withPeriod } = data.data;
 
-  const tomadas = data.data.filter(v=>v.status!=="rechazada").reduce((s,v)=>s+v.days,0);
-  const causadas = vacacionesCausadas(emp.hire_date, emp.termination_date);
-  const saldo = Math.round((causadas-tomadas)*10)/10;
+  /* Reparto de cada disfrute en su periodo. Los rechazados SÍ se listan (para
+     dejar constancia) pero no consumen saldo. */
+  const porPeriodo = {}; const sueltos = [];
+  rows.forEach(v=>{
+    const p = periodOf(v, periods);
+    if(p) (porPeriodo[p.start] = porPeriodo[p.start] || []).push(v);
+    else sueltos.push(v);
+  });
+  const r1 = (n)=> Math.round(n*10)/10;
+  const cuenta = (lista)=> lista.filter(v=>v.status!=="rechazada").reduce((s,v)=>s+v.days,0);
+  const totalCausados = r1(periods.reduce((s,p)=>s+p.causados,0));
+  const totalTomados  = cuenta(rows);
+  const saldo = r1(totalCausados-totalTomados);
+
+  const filaDisfrute = (v)=>(
+    <tr key={v.id} style={{cursor:"default"}}>
+      <td>{fmt(v.start_date)}</td><td>{fmt(v.end_date)}</td>
+      <td><b>{v.days}</b></td>
+      <td><Badge status={v.status}/></td>
+      <td style={{whiteSpace:"normal"}}>{v.observations||"—"}</td>
+      <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(v.id)}>Eliminar</button>}</td>
+    </tr>
+  );
+  const CAB = <thead><tr><th>Desde</th><th>Hasta</th><th>Días hábiles</th><th>Estado</th><th>Observaciones</th><th></th></tr></thead>;
 
   return (
     <div>
       <div className="card" style={{marginBottom:12,display:"flex",gap:24,flexWrap:"wrap"}}>
-        <Info label="Días causados" value={causadas}/>
-        <Info label="Días tomados" value={tomadas}/>
+        <Info label="Días causados" value={totalCausados}/>
+        <Info label="Días tomados" value={totalTomados}/>
         <Info label="Saldo pendiente" value={saldo}/>
+        <Info label="Se cuentan" value={cap(workWeekLabel(emp.employee_type))}/>
       </div>
-      {write && <div style={{marginBottom:12}}><button className="btn accent sm" onClick={()=>{setF(empty());setShow(true);}}><Icon name="plus"/>Registrar vacaciones</button></div>}
-      {data.data.length===0 ? <Empty text="Sin periodos de vacaciones."/> :
-        <div className="table-wrap"><table>
-          <thead><tr><th>Inicio</th><th>Fin</th><th>Días</th><th>Estado</th><th></th></tr></thead>
-          <tbody>{data.data.map(v=>(
-            <tr key={v.id} style={{cursor:"default"}}>
-              <td>{fmt(v.start_date)}</td><td>{fmt(v.end_date)}</td><td>{v.days}</td><td><Badge status={v.status}/></td>
-              <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(v.id)}>Eliminar</button>}</td>
-            </tr>
-          ))}</tbody>
-        </table></div>}
+
+      {!emp.employee_type && (
+        <Notice kind="amber" icon="alert">
+          Este registro no tiene clasificación, así que los días se cuentan de {WORK_WEEK_LABEL.administrativo}.
+          Clasifícalo como <b>Asistencial</b> si trabaja de {WORK_WEEK_LABEL.asistencial}.
+        </Notice>
+      )}
+      {!withPeriod && (
+        <Notice kind="amber" icon="alert">
+          Falta ejecutar <code>migracion_v10.sql</code>: los periodos se deducen de la fecha de inicio de
+          cada registro en vez de quedar guardados.
+        </Notice>
+      )}
+
+      {write && <div style={{marginBottom:14}}>
+        <button className="btn accent sm" disabled={periods.length===0} onClick={()=>{setF(empty());setShow(true);}}>
+          <Icon name="plus"/>Registrar vacaciones
+        </button>
+      </div>}
+
+      {periods.length===0
+        ? <Empty text="Aún no se ha cumplido el primer periodo desde la fecha de ingreso."/>
+        : <div className="grid" style={{gap:14}}>
+            {periods.map(p=>{
+              const lista = porPeriodo[p.start]||[];
+              const tomados = cuenta(lista);
+              const st = periodStatus(p, tomados);
+              const restantes = diffDays(todayISO(), p.deadline);
+              return (
+                <div key={p.start} className="card">
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+                    <div>
+                      <b style={{fontSize:14.5,color:"var(--navy)"}}>Periodo {p.label}</b>
+                      <div className="kv" style={{marginTop:6}}>
+                        <span>Del <b>{fmt(p.start)}</b> al <b>{fmt(p.end)}</b></span>
+                        <span>Causados: <b>{p.causados}</b></span>
+                        <span>Tomados: <b>{tomados}</b></span>
+                        <span>Saldo: <b>{r1(p.causados-tomados)}</b></span>
+                        {p.cumplido && <span>Plazo: <b>{fmt(p.deadline)}</b>{restantes>=0?` (en ${restantes} días)`:` (hace ${-restantes} días)`}</span>}
+                      </div>
+                    </div>
+                    <span className={"badge "+st.cls}><span className="dot"/>{st.label}</span>
+                  </div>
+                  <div style={{marginTop:12,borderTop:"1px solid var(--border)",paddingTop:12}}>
+                    {lista.length===0
+                      ? <p className="muted" style={{fontSize:12.5,margin:0}}>Sin disfrutes registrados en este periodo.</p>
+                      : <div className="table-wrap"><table>{CAB}<tbody>{lista.map(filaDisfrute)}</tbody></table></div>}
+                  </div>
+                </div>
+              );
+            })}
+
+            {sueltos.length>0 && (
+              <div className="card">
+                <b style={{fontSize:14.5,color:"var(--navy)"}}>Fuera de periodo</b>
+                <p className="muted" style={{fontSize:12.5,margin:"6px 0 10px"}}>
+                  Registros cuya fecha no cae dentro de ningún periodo (por ejemplo, anteriores al ingreso).
+                  Edítalos o vuelve a registrarlos para imputarlos.
+                </p>
+                <div className="table-wrap"><table>{CAB}<tbody>{sueltos.map(filaDisfrute)}</tbody></table></div>
+              </div>
+            )}
+          </div>}
 
       {show && (
         <Modal title="Registrar vacaciones" onClose={()=>setShow(false)} footer={<React.Fragment>
@@ -2103,11 +2613,24 @@ function TabVacaciones({emp, profile}){
             <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
           </React.Fragment>}>
           <div className="grid form-grid">
+            <Field label="Periodo que se disfruta">
+              <select value={f.period_start} onChange={e=>setF({...f,period_start:e.target.value})}>
+                {periods.map(p=>{
+                  const tomados = cuenta(porPeriodo[p.start]||[]);
+                  return <option key={p.start} value={p.start}>
+                    {p.label} · saldo {r1(p.causados-tomados)} de {p.causados}
+                  </option>;
+                })}
+              </select>
+            </Field>
             <Field label="Inicio"><input type="date" value={f.start_date} onChange={e=>setF({...f,start_date:e.target.value})}/></Field>
             <Field label="Fin"><input type="date" value={f.end_date} onChange={e=>setF({...f,end_date:e.target.value})}/></Field>
             <Field label="Estado"><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{opts(VAC_STATUS)}</select></Field>
           </div>
-          <p className="muted" style={{margin:"10px 0"}}>Días: <b style={{color:"var(--navy)"}}>{dias}</b></p>
+          <p className="muted" style={{margin:"10px 0"}}>
+            Días hábiles que se descuentan: <b style={{color:"var(--navy)"}}>{dias}</b>
+            <span style={{opacity:.8}}> · {corridos} día(s) de calendario · se cuenta de {workWeekLabel(emp.employee_type)}</span>
+          </p>
           <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
         </Modal>
       )}
@@ -2222,26 +2745,11 @@ function TabDocumentos({employeeId, profile}){
   );
 }
 
-/* ---------- Auditoría por registro ---------- */
-function TabAuditoria({recordId}){
-  const data = useAsync(async ()=>{
-    const { data, error } = await sb.from("audit_logs").select("*,profiles(full_name)").eq("record_id",recordId).order("created_at",{ascending:false}).limit(100);
-    if(error) throw error; return data;
-  }, [recordId]);
-  if(data.loading) return <SkeletonRows cols={4} rows={3}/>;
-  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
-  if(data.data.length===0) return <Empty text="Sin eventos de auditoría visibles para tu rol."/>;
-  return (
-    <div className="table-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Tabla</th></tr></thead>
-      <tbody>{data.data.map(a=>(
-        <tr key={a.id} style={{cursor:"default"}}>
-          <td>{fmtDateTime(a.created_at)}</td><td>{a.profiles?a.profiles.full_name:"—"}</td><td>{a.action}</td><td>{a.table_name}</td>
-        </tr>
-      ))}</tbody>
-    </table></div>
-  );
-}
+/* El panel de auditoría se retiró de la interfaz (ni la pestaña del
+   expediente ni el módulo global). El registro en la base de datos SIGUE
+   funcionando: el trigger `fn_audit` guarda cada alta, cambio y borrado en
+   `audit_logs`, y las políticas RLS de esa tabla no cambian. Para volver a
+   mostrarlo basta con reponer el componente y su entrada de menú. */
 
 /* =====================================================================
    VACACIONES (módulo global)
@@ -2251,27 +2759,43 @@ function VacacionesGlobal({profile}){
   const toast = useToast();
   const [show,setShow] = useState(false);
   const data = useAsync(async ()=>{
+    const withType   = await hasEmployeeType();
+    const withPeriod = await hasVacPeriod();
+    const empCols = "id,first_name,last_name,hire_date,termination_date,status" + (withType?",employee_type":"");
+    const vacCols = "id,employee_id,start_date,end_date,days,status,observations,employees(first_name,last_name)"
+      + (withPeriod?",period_start,period_end":"");
     const [emps, vacs] = await Promise.all([
-      sb.from("employees").select("id,first_name,last_name,hire_date,termination_date,status").order("first_name"),
-      sb.from("vacations").select("*,employees(first_name,last_name)").order("start_date",{ascending:false}).limit(500),
+      sb.from("employees").select(empCols).order("first_name"),
+      sb.from("vacations").select(vacCols).order("start_date",{ascending:false}).limit(500),
     ]);
     if(emps.error) throw emps.error; if(vacs.error) throw vacs.error;
-    return { emps:emps.data||[], vacs:vacs.data||[] };
+    return { emps:emps.data||[], vacs:vacs.data||[], withPeriod };
   }, []);
-  const empty = ()=>({ employee_id:"", start_date:todayISO(), end_date:todayISO(), status:"aprobada", observations:"" });
+  const empty = ()=>({ employee_id:"", period_start:"", start_date:todayISO(), end_date:todayISO(), status:"aprobada", observations:"" });
   const [f,setF] = useState(empty());
   const [busy,setBusy] = useState(false);
-  const dias = daysBetween(f.start_date,f.end_date);
+  // El empleado seleccionado decide cómo se cuentan los días (L-V o L-S).
+  const selEmp = (data.data ? data.data.emps : []).find(e=>e.id===f.employee_id) || null;
+  const selPeriods = selEmp ? vacationPeriods(selEmp.hire_date, selEmp.termination_date) : [];
+  const dias = businessDays(f.start_date, f.end_date, selEmp ? selEmp.employee_type : null);
+  const corridos = daysBetween(f.start_date,f.end_date);
   const save = async ()=>{
     if(!f.employee_id){ toast("Selecciona un empleado.","err"); return; }
-    if(dias<=0){ toast("Rango de fechas inválido.","err"); return; }
+    if(corridos<=0){ toast("Rango de fechas inválido.","err"); return; }
+    if(dias<=0){ toast("El rango no contiene días hábiles.","err"); return; }
     setBusy(true);
     try{
       const p = { employee_id:f.employee_id, start_date:f.start_date, end_date:f.end_date, days:dias, status:f.status,
         observations:f.observations||null, created_by:profile.id, approved_by: f.status==="aprobada"?profile.id:null };
+      if(data.data.withPeriod){
+        const per = selPeriods.find(x=>x.start===f.period_start) ||
+                    selPeriods.find(x=>f.start_date>=x.start && f.start_date<=x.end);
+        if(per){ p.period_start = per.start; p.period_end = per.end; }
+        p.business_days = true;
+      }
       const { error } = await sb.from("vacations").insert(p);
       if(error) throw error;
-      toast("Vacaciones registradas.","ok"); setShow(false); setF(empty()); data.reload();
+      toast("Vacaciones registradas: "+dias+" día(s) hábil(es).","ok"); setShow(false); setF(empty()); data.reload();
     }catch(e){ toast(friendlyError(e),"err"); } finally{ setBusy(false); }
   };
   const del = async (id)=>{ if(!confirm("¿Eliminar este periodo de vacaciones?")) return;
@@ -2282,9 +2806,24 @@ function VacacionesGlobal({profile}){
   if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
   const { emps, vacs } = data.data;
   const empById = {}; emps.forEach(e=>{ empById[e.id]=e; });
+  /* El saldo se mide contra los periodos anuales cumplidos, no contra un
+     prorrateo suelto: es lo mismo que muestra el expediente. */
+  /* Los periodos se calculan una vez por empleado y se reutilizan: la tabla
+     puede traer cientos de filas del mismo empleado. */
+  const periodCache = {};
+  const periodsOf = (e)=> periodCache[e.id] || (periodCache[e.id] = vacationPeriods(e.hire_date, e.termination_date));
+  const tomadasPorEmp = {};
+  vacs.forEach(v=>{ if(v.status!=="rechazada") tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+v.days; });
   const saldoDe = (id)=>{ const e=empById[id]; if(!e) return "—";
-    const tomadas = vacs.filter(v=>v.employee_id===id && v.status!=="rechazada").reduce((s,v)=>s+v.days,0);
-    return Math.round((vacacionesCausadas(e.hire_date,e.termination_date)-tomadas)*10)/10; };
+    const causados = periodsOf(e).reduce((s,p)=>s+p.causados,0);
+    return Math.round((causados-(tomadasPorEmp[id]||0))*10)/10; };
+  /* Etiqueta del periodo de cada registro, para no perder de vista a qué año
+     corresponde el disfrute. */
+  const periodoDe = (v)=>{
+    const e = empById[v.employee_id]; if(!e) return "—";
+    const p = periodOf(v, periodsOf(e));
+    return p ? p.label : "—";
+  };
 
   return (
     <div>
@@ -2293,12 +2832,18 @@ function VacacionesGlobal({profile}){
         {write && <button className="btn accent" onClick={()=>{setF(empty());setShow(true);}}><Icon name="plus"/>Registrar vacaciones</button>}
       </div>
       {!write && <Notice icon="lock">{whyNot(profile,"vacations","write")} La consulta de periodos y saldos sigue disponible.</Notice>}
+      <Notice icon="info">
+        Los días se cuentan <b>hábiles</b>: el personal administrativo de {WORK_WEEK_LABEL.administrativo} y
+        el asistencial de {WORK_WEEK_LABEL.asistencial}. El detalle por periodo anual está en la pestaña
+        «Vacaciones» de cada expediente.
+      </Notice>
       {vacs.length===0 ? <Empty text="No hay periodos de vacaciones registrados."/> :
        <div className="table-wrap"><table>
-        <thead><tr><th>Empleado</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Empleado</th><th>Periodo</th><th>Inicio</th><th>Fin</th><th>Días hábiles</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
         <tbody>{vacs.map(v=>(
           <tr key={v.id} style={{cursor:"default"}}>
             <td><b>{v.employees? v.employees.first_name+" "+v.employees.last_name : "—"}</b></td>
+            <td>{periodoDe(v)}</td>
             <td>{fmt(v.start_date)}</td><td>{fmt(v.end_date)}</td><td>{v.days}</td>
             <td>{saldoDe(v.employee_id)}</td><td><Badge status={v.status}/></td>
             <td>{write && <button className="linkbtn" style={{color:"var(--red)"}} onClick={()=>del(v.id)}>Eliminar</button>}</td>
@@ -2312,12 +2857,26 @@ function VacacionesGlobal({profile}){
             <button className="btn ghost" onClick={()=>setShow(false)}>Cancelar</button>
           </React.Fragment>}>
           <div className="grid form-grid">
-            <Field label="Empleado"><select value={f.employee_id} onChange={e=>setF({...f,employee_id:e.target.value})}><option value="">Selecciona…</option>{emps.filter(e=>e.status==="activo").map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}</select></Field>
+            <Field label="Empleado"><select value={f.employee_id} onChange={e=>setF({...f,employee_id:e.target.value,period_start:""})}><option value="">Selecciona…</option>{emps.filter(e=>e.status==="activo").map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}</select></Field>
+            {selPeriods.length>0 && (
+              <Field label="Periodo que se disfruta">
+                <select value={f.period_start} onChange={e=>setF({...f,period_start:e.target.value})}>
+                  <option value="">Según la fecha de inicio</option>
+                  {selPeriods.map(p=><option key={p.start} value={p.start}>{p.label}</option>)}
+                </select>
+              </Field>
+            )}
             <Field label="Inicio"><input type="date" value={f.start_date} onChange={e=>setF({...f,start_date:e.target.value})}/></Field>
             <Field label="Fin"><input type="date" value={f.end_date} onChange={e=>setF({...f,end_date:e.target.value})}/></Field>
             <Field label="Estado"><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{opts(VAC_STATUS)}</select></Field>
           </div>
-          {f.employee_id && <p className="muted" style={{margin:"10px 0"}}>Saldo actual: <b style={{color:"var(--navy)"}}>{saldoDe(f.employee_id)}</b> días · Solicitado ahora: <b style={{color:"var(--navy)"}}>{dias}</b></p>}
+          {f.employee_id && (
+            <p className="muted" style={{margin:"10px 0"}}>
+              Saldo actual: <b style={{color:"var(--navy)"}}>{saldoDe(f.employee_id)}</b> días ·
+              Se descontarán <b style={{color:"var(--navy)"}}>{dias}</b> día(s) hábil(es) de {corridos} de calendario ·
+              cuenta de {workWeekLabel(selEmp ? selEmp.employee_type : null)}
+            </p>
+          )}
           <Field label="Observaciones"><textarea value={f.observations} onChange={e=>setF({...f,observations:e.target.value})}/></Field>
         </Modal>
       )}
@@ -2410,36 +2969,283 @@ function IncapacidadesGlobal({profile}){
 }
 
 /* =====================================================================
-   AUDITORÍA GLOBAL
+   ESTADÍSTICAS
+   Dos lecturas por mes y año: la salud laboral (incapacidades, accidentes
+   y licencias) y el movimiento de personal (ingresos y retiros).
+
+   Sobre el color: las series usan un orden FIJO —azul, ámbar, verde azulado,
+   rojo— tomado de la paleta corporativa y verificado para daltonismo en
+   barras agrupadas (peor par adyacente ΔE 13.4 protan/deutan; visión normal
+   20.6). No se recicla ni se reordena: cada serie conserva su color aunque
+   se filtre el año. Dos de esos tonos quedan por debajo de 3:1 contra el
+   vidrio claro, así que la vista de TABLA no es opcional: es la que
+   garantiza que ningún dato dependa del color.
    ===================================================================== */
-function Auditoria(){
-  const [tabla,setTabla] = useState("");
-  const data = useAsync(async ()=>{
-    let q = sb.from("audit_logs").select("*,profiles(full_name)").order("created_at",{ascending:false}).limit(200);
-    if(tabla) q = q.eq("table_name",tabla);
-    const { data, error } = await q;
-    if(error) throw error; return data;
-  }, [tabla]);
+const VIZ_SERIES = ["#2E9FD6","#B0731A","#16A99B","#C0453C"];
+const VIZ_INK    = "var(--ink-2)";
+const VIZ_MUTED  = "var(--muted)";
+const VIZ_GRID   = "rgba(15,32,53,.12)";
+const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+/* Barras agrupadas en SVG. `series` = [{key,label,color,values:[12]}]. */
+function BarChart({series, labels, titulo, subtitulo, unidad="registros"}){
+  const [hover,setHover] = useState(null);   // {i, s} celda señalada
+  const max = Math.max(1, ...series.flatMap(s=>s.values));
+  // Escala redondeada a un número limpio (1/2/5 × 10ⁿ).
+  const paso = (()=>{ const bruto=max/4, exp=Math.pow(10,Math.floor(Math.log10(bruto)||0));
+    const n=bruto/exp; return (n<=1?1:n<=2?2:n<=5?5:10)*exp; })();
+  const techo = Math.max(paso, Math.ceil(max/paso)*paso);
+  const ticks = []; for(let v=0; v<=techo+0.001; v+=paso) ticks.push(Math.round(v*100)/100);
+
+  const W=760, H=250, ML=42, MR=10, MT=12, MB=34;
+  const plotW = W-ML-MR, plotH = H-MT-MB;
+  const banda = plotW/labels.length;
+  const y = (v)=> MT + plotH - (v/techo)*plotH;
+  // Marca fina: como mucho 24px de ancho y 2px de aire entre barras vecinas.
+  const anchoGrupo = Math.min(banda*0.72, 24*series.length + 2*(series.length-1));
+  const anchoBarra = Math.max(3, (anchoGrupo - 2*(series.length-1))/series.length);
+
   return (
     <div>
-      <h2 className="section-title">Historial de auditoría</h2>
-      <div style={{marginBottom:12}}>
-        <select style={{maxWidth:260}} value={tabla} onChange={e=>setTabla(e.target.value)}>
-          <option value="">Todas las tablas</option>
-          {["employees","contracts","contract_addendums","employee_social_security","social_security_novelties","vacations","disabilities","documents","profiles"].map(t=><option key={t}>{t}</option>)}
-        </select>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12,flexWrap:"wrap"}}>
+        <h3 className="section-title" style={{fontSize:14,marginBottom:4}}>{titulo}</h3>
+        {subtitulo && <span className="muted" style={{fontSize:12}}>{subtitulo}</span>}
       </div>
-      {data.loading ? <SkeletonRows cols={5} rows={6}/> :
-       data.error ? <ErrorCard error={data.error} onRetry={data.reload}/> :
-       data.data.length===0 ? <Empty text="No hay eventos de auditoría."/> :
-       <div className="table-wrap"><table>
-        <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Tabla</th><th>Registro</th></tr></thead>
-        <tbody>{data.data.map(a=>(
-          <tr key={a.id} style={{cursor:"default"}}>
-            <td>{fmtDateTime(a.created_at)}</td><td>{a.profiles?a.profiles.full_name:"—"}</td><td>{a.action}</td><td>{a.table_name}</td><td style={{fontSize:11,color:"var(--muted)"}}>{a.record_id?a.record_id.slice(0,8):"—"}</td>
+      {/* Leyenda: la identidad nunca depende solo del color. */}
+      <div style={{display:"flex",gap:16,flexWrap:"wrap",margin:"8px 0 10px"}}>
+        {series.map(s=>(
+          <span key={s.key} style={{display:"inline-flex",alignItems:"center",gap:7,fontSize:12,color:VIZ_INK,fontWeight:600}}>
+            <span style={{width:11,height:11,borderRadius:3,background:s.color,flexShrink:0}}/>{s.label}
+          </span>
+        ))}
+      </div>
+      <div style={{position:"relative"}}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto",display:"block",overflow:"visible"}}
+          role="img" aria-label={titulo}>
+          {ticks.map(t=>(
+            <g key={t}>
+              <line x1={ML} x2={W-MR} y1={y(t)} y2={y(t)} stroke={VIZ_GRID} strokeWidth="1"/>
+              <text x={ML-8} y={y(t)+4} textAnchor="end" fontSize="10.5" fill={VIZ_MUTED}
+                style={{fontVariantNumeric:"tabular-nums"}}>{t}</text>
+            </g>
+          ))}
+          {labels.map((lb,i)=>{
+            const x0 = ML + i*banda + (banda-anchoGrupo)/2;
+            return (
+              <g key={lb}>
+                <text x={ML+i*banda+banda/2} y={H-MB+18} textAnchor="middle" fontSize="10.5" fill={VIZ_MUTED}>{lb}</text>
+                {series.map((s,j)=>{
+                  const v = s.values[i]||0;
+                  const x = x0 + j*(anchoBarra+2);
+                  const alto = v===0 ? 0 : Math.max(2, (v/techo)*plotH);
+                  const activo = hover && hover.i===i && hover.s===j;
+                  return (
+                    <g key={s.key}>
+                      {/* Zona de contacto más grande que la barra. */}
+                      <rect x={x-1} y={MT} width={anchoBarra+2} height={plotH} fill="transparent"
+                        onMouseEnter={()=>setHover({i,s:j})} onMouseLeave={()=>setHover(null)}/>
+                      {v>0 && (
+                        <rect x={x} y={MT+plotH-alto} width={anchoBarra} height={alto}
+                          rx="4" ry="4" fill={s.color} opacity={hover && !activo ? .55 : 1}
+                          style={{pointerEvents:"none"}}>
+                          <title>{`${s.label} · ${lb}: ${v} ${unidad}`}</title>
+                        </rect>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+          <line x1={ML} x2={W-MR} y1={MT+plotH} y2={MT+plotH} stroke="rgba(15,32,53,.25)" strokeWidth="1"/>
+        </svg>
+        {hover && (
+          /* Se sujeta al centro de la columna señalada, sin salirse por los
+             bordes (de ahí el recorte al 14-86 % del ancho). */
+          <div className="viz-tip" style={{left:`${Math.min(86,Math.max(14,((ML+hover.i*banda+banda/2)/W)*100))}%`}}>
+            <b>{labels[hover.i]}</b>
+            <span style={{display:"inline-flex",alignItems:"center",gap:6,marginLeft:8}}>
+              <span style={{width:9,height:9,borderRadius:3,background:series[hover.s].color}}/>
+              {series[hover.s].label}: <b>{series[hover.s].values[hover.i]||0}</b>
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Tabla equivalente al gráfico: es la vía de acceso que no depende del color. */
+function SeriesTable({series, labels, cabecera="Mes"}){
+  return (
+    <div className="table-wrap" style={{marginTop:12}}>
+      <table>
+        <thead><tr><th>{cabecera}</th>{series.map(s=><th key={s.key}>{s.label}</th>)}<th>Total</th></tr></thead>
+        <tbody>
+          {labels.map((lb,i)=>{
+            const total = series.reduce((a,s)=>a+(s.values[i]||0),0);
+            return (
+              <tr key={lb} style={{cursor:"default"}}>
+                <td><b>{lb}</b></td>
+                {series.map(s=><td key={s.key} style={{fontVariantNumeric:"tabular-nums"}}>{s.values[i]||0}</td>)}
+                <td style={{fontVariantNumeric:"tabular-nums"}}><b>{total}</b></td>
+              </tr>
+            );
+          })}
+          <tr style={{cursor:"default"}}>
+            <td><b>Total</b></td>
+            {series.map(s=><td key={s.key} style={{fontVariantNumeric:"tabular-nums"}}><b>{s.values.reduce((a,b)=>a+b,0)}</b></td>)}
+            <td style={{fontVariantNumeric:"tabular-nums"}}><b>{series.reduce((a,s)=>a+s.values.reduce((x,y)=>x+y,0),0)}</b></td>
           </tr>
-        ))}</tbody>
-      </table></div>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* Un bloque = gráfico + su tabla, con el mismo conmutador. */
+function ChartBlock({series, labels, titulo, subtitulo, unidad, cabeceraTabla}){
+  const [tabla,setTabla] = useState(false);
+  const vacio = series.every(s=>s.values.every(v=>!v));
+  return (
+    <div className="card" style={{marginBottom:18}}>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:-6}}>
+        <button className="btn ghost sm" onClick={()=>setTabla(t=>!t)}>
+          <Icon name={tabla?"dashboard":"clipboard"}/>{tabla?"Ver gráfico":"Ver tabla"}
+        </button>
+      </div>
+      {vacio
+        ? <div><h3 className="section-title" style={{fontSize:14}}>{titulo}</h3><Empty text="Sin registros en este periodo."/></div>
+        : tabla
+          ? <div><h3 className="section-title" style={{fontSize:14}}>{titulo}</h3>
+              {subtitulo && <p className="muted" style={{fontSize:12,margin:"0 0 4px"}}>{subtitulo}</p>}
+              <SeriesTable series={series} labels={labels} cabecera={cabeceraTabla}/></div>
+          : <BarChart series={series} labels={labels} titulo={titulo} subtitulo={subtitulo} unidad={unidad}/>}
+    </div>
+  );
+}
+
+function Estadisticas(){
+  const [anio,setAnio] = useState(String(new Date().getFullYear()));
+
+  const data = useAsync(async ()=>{
+    const [dis, emps] = await Promise.all([
+      sb.from("disabilities").select("id,type,start_date,days").order("start_date",{ascending:false}).limit(3000),
+      sb.from("employees").select("id,hire_date,termination_date").limit(3000),
+    ]);
+    if(dis.error) throw dis.error; if(emps.error) throw emps.error;
+    return { dis:dis.data||[], emps:emps.data||[] };
+  }, []);
+
+  if(data.loading) return <div><h2 className="section-title">Estadísticas</h2><SkeletonRows cols={5} rows={6}/></div>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
+  const { dis, emps } = data.data;
+
+  /* Años con algún movimiento, de más reciente a más antiguo. */
+  const anios = Array.from(new Set([
+    ...dis.map(d=>d.start_date.slice(0,4)),
+    ...emps.filter(e=>e.hire_date).map(e=>e.hire_date.slice(0,4)),
+    ...emps.filter(e=>e.termination_date).map(e=>e.termination_date.slice(0,4)),
+    String(new Date().getFullYear()),
+  ])).sort((a,b)=>b.localeCompare(a));
+  const anioSel = anios.includes(anio) ? anio : anios[0];
+
+  /* Agrupaciones de incapacidad: el orden de las series es el orden fijo de
+     la paleta (azul, ámbar, verde azulado, rojo). */
+  const GRUPOS_DIS = [
+    { key:"general",   label:"Enfermedad general", tipos:["enfermedad_general"] },
+    { key:"accidente", label:"Accidentes de trabajo", tipos:["accidente_laboral"] },
+    { key:"licencia",  label:"Licencias", tipos:["licencia_maternidad","licencia_paternidad"] },
+    { key:"laboral",   label:"Enfermedad laboral", tipos:["enfermedad_laboral"] },
+  ];
+  const contarMes = (filas, campo, anioX) => {
+    const v = new Array(12).fill(0);
+    filas.forEach(r=>{ const f=r[campo]; if(f && f.slice(0,4)===anioX) v[parseInt(f.slice(5,7),10)-1]++; });
+    return v;
+  };
+  const contarAnio = (filas, campo, listaAnios) =>
+    listaAnios.map(a => filas.filter(r=>r[campo] && r[campo].slice(0,4)===a).length);
+
+  const aniosAsc = [...anios].sort();
+  const seriesDisMes = GRUPOS_DIS.map((g,i)=>({
+    key:g.key, label:g.label, color:VIZ_SERIES[i],
+    values: contarMes(dis.filter(d=>g.tipos.includes(d.type)), "start_date", anioSel),
+  }));
+  const seriesDisAnio = GRUPOS_DIS.map((g,i)=>({
+    key:g.key, label:g.label, color:VIZ_SERIES[i],
+    values: contarAnio(dis.filter(d=>g.tipos.includes(d.type)), "start_date", aniosAsc),
+  }));
+  const seriesMovMes = [
+    { key:"ingresos", label:"Ingresos", color:VIZ_SERIES[0], values: contarMes(emps,"hire_date",anioSel) },
+    { key:"retiros",  label:"Retiros",  color:VIZ_SERIES[1], values: contarMes(emps,"termination_date",anioSel) },
+  ];
+  const seriesMovAnio = [
+    { key:"ingresos", label:"Ingresos", color:VIZ_SERIES[0], values: contarAnio(emps,"hire_date",aniosAsc) },
+    { key:"retiros",  label:"Retiros",  color:VIZ_SERIES[1], values: contarAnio(emps,"termination_date",aniosAsc) },
+  ];
+
+  const totalDisAnio = seriesDisMes.reduce((a,s)=>a+s.values.reduce((x,y)=>x+y,0),0);
+  const diasAnio = dis.filter(d=>d.start_date.slice(0,4)===anioSel).reduce((s,d)=>s+(d.days||0),0);
+  const ingAnio = seriesMovMes[0].values.reduce((a,b)=>a+b,0);
+  const retAnio = seriesMovMes[1].values.reduce((a,b)=>a+b,0);
+
+  return (
+    <div>
+      <div className="page-head">
+        <h2 className="section-title" style={{margin:0}}>Estadísticas</h2>
+        {/* Filtros en una sola fila sobre los gráficos. */}
+        <label className="f" style={{flexDirection:"row",alignItems:"center",gap:10,fontSize:12.5}}>
+          <span style={{whiteSpace:"nowrap"}}>Año</span>
+          <select style={{minWidth:120}} value={anioSel} onChange={e=>setAnio(e.target.value)}>
+            {anios.map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div className="grid stats" style={{marginBottom:20}}>
+        <div className="card stat">
+          <div style={{minWidth:0}}><div className="l">Incapacidades y licencias {anioSel}</div>
+            <div className="n" style={{color:"var(--navy)"}}>{totalDisAnio}</div></div>
+          <div className="kpi-ico ico-teal"><Icon name="health"/></div>
+        </div>
+        <div className="card stat">
+          <div style={{minWidth:0}}><div className="l">Días de incapacidad {anioSel}</div>
+            <div className="n" style={{color:"var(--navy)"}}>{diasAnio}</div></div>
+          <div className="kpi-ico ico-navy"><Icon name="calendar"/></div>
+        </div>
+        <div className="card stat">
+          <div style={{minWidth:0}}><div className="l">Ingresos {anioSel}</div>
+            <div className="n" style={{color:"var(--green)"}}>{ingAnio}</div></div>
+          <div className="kpi-ico ico-green"><Icon name="users"/></div>
+        </div>
+        <div className="card stat">
+          <div style={{minWidth:0}}><div className="l">Retiros {anioSel}</div>
+            <div className="n" style={{color:"var(--red)"}}>{retAnio}</div></div>
+          <div className="kpi-ico ico-red"><Icon name="logout"/></div>
+        </div>
+      </div>
+
+      <ChartBlock titulo={`Incapacidades, accidentes y licencias por mes · ${anioSel}`}
+        subtitulo="Contadas por el mes en que inician" unidad="casos"
+        series={seriesDisMes} labels={MESES}/>
+
+      <ChartBlock titulo="Incapacidades, accidentes y licencias por año"
+        subtitulo="Histórico completo" unidad="casos" cabeceraTabla="Año"
+        series={seriesDisAnio} labels={aniosAsc}/>
+
+      <ChartBlock titulo={`Ingresos y retiros por mes · ${anioSel}`}
+        subtitulo="Según la fecha de ingreso y la de retiro" unidad="personas"
+        series={seriesMovMes} labels={MESES}/>
+
+      <ChartBlock titulo="Ingresos y retiros por año"
+        subtitulo="Histórico completo" unidad="personas" cabeceraTabla="Año"
+        series={seriesMovAnio} labels={aniosAsc}/>
+
+      <p className="muted" style={{fontSize:12.5}}>
+        Las incapacidades se agrupan por su tipo: enfermedad general, accidente de trabajo, enfermedad
+        laboral y licencias (maternidad y paternidad). Cada caso cuenta en el mes en que empieza.
+        Todos los gráficos tienen su equivalente en tabla con el botón «Ver tabla».
+      </p>
     </div>
   );
 }
@@ -2543,7 +3349,9 @@ function Permisos({session, profile}){
         <table className="perm-table">
           <thead><tr><th>Módulo</th><th>Consultar</th><th>Crear / editar</th><th>Eliminar</th></tr></thead>
           <tbody>
-            {AREAS.filter(a=>a!=="salary").map(area=>(
+            {/* `audit` se omite: el panel de auditoría ya no está en la
+                interfaz, aunque la tabla y sus políticas siguen activas. */}
+            {AREAS.filter(a=>a!=="salary" && a!=="audit").map(area=>(
               <tr key={area} style={{cursor:"default"}}>
                 <td>{cap(AREA_LABELS[area])}</td>
                 <td><Tag ok={can(profile,area,"read")}/></td>
@@ -2589,44 +3397,61 @@ function Permisos({session, profile}){
    APP PRINCIPAL (post-login)
    ===================================================================== */
 function Workspace({session, profile, onSignOut}){
-  const [view,setView] = useState("dashboard"); // dashboard | empleados | auditoria | usuarios
+  const [view,setView] = useState("dashboard"); // dashboard | empleados | medicos | aprendices | …
   const [empId,setEmpId] = useState(null);
   const [departments,setDepartments] = useState([]);
   const [ssEntities,setSsEntities] = useState([]);
   const [menuOpen,setMenuOpen] = useState(false);
 
-  useEffect(()=>{
-    (async ()=>{
-      const [d,s] = await Promise.all([
-        sb.from("departments").select("id,name").order("name"),
-        sb.from("social_security_entities").select("id,kind,name").eq("active",true).order("name"),
-      ]);
-      setDepartments(d.data||[]); setSsEntities(s.data||[]);
-      // Comprueba una sola vez si la base ya tiene la columna `employee_type`.
-      hasEmployeeType();
-    })();
+  /* Los catálogos se recargan cuando un formulario crea un área nueva. */
+  const loadCatalogs = useCallback(async ()=>{
+    const [d,s] = await Promise.all([
+      sb.from("departments").select("id,name").order("name"),
+      sb.from("social_security_entities").select("id,kind,name").eq("active",true).order("name"),
+    ]);
+    setDepartments(d.data||[]); setSsEntities(s.data||[]);
   }, []);
 
-  const openEmployee = (id)=>{ setEmpId(id); setView("empleados"); setMenuOpen(false); };
+  useEffect(()=>{
+    loadCatalogs();
+    // Comprueba una sola vez qué columnas nuevas tiene la base.
+    hasEmployeeType(); hasStaffGroup();
+  }, [loadCatalogs]);
+
+  const catalogs = useMemo(()=>({ departments, ssEntities, reloadCatalogs:loadCatalogs }),
+                           [departments, ssEntities, loadCatalogs]);
+
+  // Al abrir un expediente se va a la pantalla de su grupo, para que el
+  // botón «Volver» devuelva a la lista correcta.
+  const openEmployee = (id, grupo)=>{
+    setEmpId(id);
+    setView(grupo && STAFF_GROUPS[grupo] ? STAFF_GROUPS[grupo].view : "empleados");
+    setMenuOpen(false);
+  };
   const go = (v)=>{ setView(v); setEmpId(null); setMenuOpen(false); };
 
-  /* Navegación: mismos identificadores de vista y mismos permisos que antes.
-     `group` solo agrupa visualmente; `show` decide la visibilidad. */
+  /* Navegación. `group` solo agrupa visualmente; `show` decide visibilidad. */
   const isAdmin = can(profile,"users","write");
   const NAV = [
-    {id:"dashboard",     label:"Resumen",          ico:"dashboard", group:"Operación",     show:true},
-    {id:"empleados",     label:"Empleados",        ico:"users",     group:"Operación",     show:true},
-    {id:"vacaciones",    label:"Vacaciones",       ico:"beach",     group:"Operación",     show:true},
-    {id:"incapacidades", label:"Incapacidades",    ico:"health",    group:"Operación",     show:true},
-    {id:"auditoria",     label:"Auditoría",        ico:"clipboard", group:"Administración", show:isAdmin},
+    {id:"dashboard",     label:"Resumen",          ico:"dashboard", group:"General",        show:true},
+    {id:"empleados",     label:"Empleados",        ico:"users",     group:"Personal",       show:true},
+    {id:"medicos",       label:"Médicos",          ico:"health",    group:"Personal",       show:true},
+    {id:"aprendices",    label:"Aprendices",       ico:"clipboard", group:"Personal",       show:true},
+    {id:"vacaciones",    label:"Vacaciones",       ico:"beach",     group:"Operación",      show:true},
+    {id:"incapacidades", label:"Incapacidades",    ico:"health",    group:"Operación",      show:true},
+    {id:"estadisticas",  label:"Estadísticas",     ico:"dashboard", group:"Operación",      show:true},
     {id:"usuarios",      label:"Usuarios y roles", ico:"settings",  group:"Administración", show:isAdmin},
     {id:"permisos",      label:"Permisos",         ico:"shield",    group:"Administración", show:true},
   ].filter(n=>n.show);
 
+  const grupoDeVista = GROUP_BY_VIEW[view] || null;
   const TITLES = {
-    dashboard:"Resumen", empleados: empId ? "Expediente del empleado" : "Empleados",
-    vacaciones:"Vacaciones", incapacidades:"Incapacidades",
-    auditoria:"Auditoría", usuarios:"Usuarios y roles", permisos:"Permisos",
+    dashboard:"Resumen",
+    empleados:  empId ? "Expediente del empleado" : "Empleados",
+    medicos:    empId ? "Expediente del médico"   : "Médicos",
+    aprendices: empId ? "Expediente del aprendiz" : "Aprendices",
+    vacaciones:"Vacaciones", incapacidades:"Incapacidades", estadisticas:"Estadísticas",
+    usuarios:"Usuarios y roles", permisos:"Permisos",
   };
   const current = NAV.find(n=>n.id===view);
   const initials = (profile.full_name || session.user.email || "?")
@@ -2636,7 +3461,11 @@ function Workspace({session, profile, onSignOut}){
   let lastGroup = null;
 
   return (
+    <CatalogCtx.Provider value={catalogs}>
     <div className="shell">
+      {/* Sugerencias de área para todos los campos «Área» de la aplicación.
+          Va una sola vez aquí para no repetir el mismo id en cada formulario. */}
+      <datalist id="th-areas">{departments.map(d=><option key={d.id} value={d.name}/>)}</datalist>
       {menuOpen && <div className="backdrop" onClick={()=>setMenuOpen(false)}/>}
       <aside className={"sidebar"+(menuOpen?" open":"")}>
         <div className="brand">
@@ -2702,18 +3531,21 @@ function Workspace({session, profile, onSignOut}){
 
         <div className="content" key={view+(empId||"")}>
           {view==="dashboard" && <Dashboard profile={profile} onOpenEmployee={openEmployee}/>}
-          {view==="empleados" && !empId && <Empleados profile={profile} departments={departments} onOpenEmployee={openEmployee}/>}
-          {view==="empleados" && empId &&
+          {/* Empleados, Médicos y Aprendices son la misma pantalla con otro filtro. */}
+          {grupoDeVista && !empId &&
+            <Staff group={grupoDeVista} profile={profile} onOpenEmployee={openEmployee}/>}
+          {grupoDeVista && empId &&
             <EmployeeProfile employeeId={empId} profile={profile} departments={departments}
-              ssEntities={ssEntities} onBack={()=>setEmpId(null)}/>}
+              ssEntities={ssEntities} group={grupoDeVista} onBack={()=>setEmpId(null)}/>}
           {view==="vacaciones" && <VacacionesGlobal profile={profile}/>}
           {view==="incapacidades" && <IncapacidadesGlobal profile={profile}/>}
-          {view==="auditoria" && <Auditoria/>}
+          {view==="estadisticas" && <Estadisticas/>}
           {view==="usuarios" && <Usuarios profile={profile} departments={departments}/>}
           {view==="permisos" && <Permisos session={session} profile={profile}/>}
         </div>
       </div>
     </div>
+    </CatalogCtx.Provider>
   );
 }
 
