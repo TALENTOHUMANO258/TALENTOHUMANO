@@ -2673,6 +2673,52 @@ function MedicoFields({form, setForm}){
   );
 }
 
+/* Tipo de médico y especialidad editables desde el encabezado del
+   expediente, sin abrir la ficha completa. Guarda al instante. */
+function MedicoQuickEdit({emp, onSaved}){
+  const toast = useToast();
+  const [form,setForm] = useState(medToForm(emp));
+  const [busy,setBusy] = useState(false);
+  const guardar = async (f)=>{
+    setBusy(true);
+    try{
+      const { dropped } = await saveEmployee(medPayload(f,"medico"), emp.id);
+      if(dropped.includes("medical_category")){ toast(MIGRATION_HINT.medical_category,"err"); return; }
+      toast("Tipo de médico guardado.","ok"); onSaved();
+    }catch(err){ toast(friendlyError(err),"err"); }
+    finally{ setBusy(false); }
+  };
+  const elegir = (v)=>{
+    const f = {...form, medical_category: form.medical_category===v ? "" : v};
+    setForm(f);
+    // Al pasar a especialista se espera a que escriba la especialidad.
+    if(f.medical_category!=="especialista" || f.specialty.trim()) guardar(f);
+  };
+  const cambiada = form.specialty.trim() !== (emp.specialty||"");
+  return (
+    <div style={{marginTop:14,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+      <span className="muted" style={{fontSize:11.5,fontWeight:700,letterSpacing:".02em"}}>Tipo de médico:</span>
+      <div className="seg" role="group" aria-label="Tipo de médico" style={{width:"auto",minWidth:280}}>
+        {Object.entries(MED_CATEGORIES).map(([v,l])=>(
+          <button key={v} type="button" disabled={busy} className={form.medical_category===v?"on":""}
+            aria-pressed={form.medical_category===v} onClick={()=>elegir(v)}>
+            <Icon name="health"/>{l}
+          </button>
+        ))}
+      </div>
+      {form.medical_category==="especialista" && (
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <input value={form.specialty} placeholder="Especialidad (ej.: Urología)" style={{minWidth:200}}
+            onChange={e=>setForm({...form,specialty:e.target.value})}
+            onKeyDown={e=>{ if(e.key==="Enter" && cambiada) guardar(form); }}/>
+          {cambiada && <button className="btn accent sm" disabled={busy} onClick={()=>guardar(form)}>
+            {busy ? <span className="spinner"/> : <Icon name="check"/>}Guardar</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const emptyEmp = (group="empleado")=>({
   first_name:"", last_name:"", document_type:"CC", document_number:"", birth_date:"", gender:"",
   email:"", phone:"", address:"", city:"", area_name:"", position_title:"", employee_type:"",
@@ -2931,7 +2977,9 @@ function Staff({group, profile, onOpenEmployee}){
             <Field label="Nombre completo"><input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Nombres y apellidos"/></Field>
             <Field label="Cédula"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})} placeholder="Número de cédula"/></Field>
             <Field label="Cargo"><input value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Cargo o puesto"/></Field>
-            {/* Médicos: sin área, sin clasificación y contrato fijo de prestación de servicios. */}
+            {/* Médicos: tipo y especialidad en lugar de área y clasificación;
+                contrato fijo de prestación de servicios. */}
+            {esMedico && <MedicoFields form={form} setForm={setForm}/>}
             {!esMedico && <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>}
             <Field label="Ciudad"><input value={form.ciudad} onChange={e=>setForm({...form,ciudad:e.target.value})} placeholder="Ciudad donde labora"/></Field>
             {!esMedico && <FieldBox label="Clasificación">
@@ -2945,7 +2993,6 @@ function Staff({group, profile, onOpenEmployee}){
             {(form.contract_type==="termino_fijo" || esMedico) &&
               <Field label={esMedico ? "Fecha fin del contrato (opcional)" : "Fecha fin del contrato"}><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})}/></Field>}
             {esAprendiz && <SenaFields form={form} setForm={setForm}/>}
-            {esMedico && <MedicoFields form={form} setForm={setForm}/>}
           </div>
           <div style={{marginTop:16}}>
             <button className="btn accent" disabled={busy} onClick={registrarIngreso}>
@@ -3146,12 +3193,13 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
             <span>Cargo: <b>{e.position_title||"—"}</b></span>
             {!esMed && <span>Área: <b>{depName(e.department_id)}</b></span>}
             <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
-            {e.staff_group==="medico" && e.medical_category &&
-              <span>Tipo: <b>{MED_CATEGORIES[e.medical_category]}{e.specialty ? " · "+e.specialty : ""}</b></span>}
+            {esMed && <span>Tipo: <b>{MED_CATEGORIES[e.medical_category] || "Sin clasificar"}
+              {e.medical_category==="especialista" ? " · "+(e.specialty || "especialidad sin indicar") : ""}</b></span>}
             {e.termination_date && <span>Retiro: <b>{fmt(e.termination_date)}</b></span>}
             {"id_card_delivered" in e && <span>Carné: <b style={{color:e.id_card_delivered?"var(--green)":"var(--red)"}}>
               {e.id_card_delivered ? "Entregado"+(e.id_card_date?" el "+fmt(e.id_card_date):"") : "No entregado"}</b></span>}
           </div>
+          {write && esMed && <MedicoQuickEdit emp={e} onSaved={emp.reload}/>}
           {write && !esMed && (
             <div style={{marginTop:14,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
               <span className="muted" style={{fontSize:11.5,fontWeight:700,letterSpacing:".02em"}}>Clasificación:</span>
