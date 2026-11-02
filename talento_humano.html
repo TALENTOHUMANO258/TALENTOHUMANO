@@ -350,6 +350,21 @@
   .btn.ghost:hover{background:rgba(255,255,255,.92);border-color:rgba(46,159,214,.4);color:var(--navy-3);box-shadow:var(--sh-2),var(--g-hi)}
   .btn.danger{background:linear-gradient(135deg,var(--red-2),var(--red));color:#fff;
     box-shadow:0 6px 18px rgba(192,69,60,.3),var(--g-hi)}
+  .btn.excel{background:linear-gradient(135deg,#21A366,#107C41);color:#fff;border-color:transparent;
+    box-shadow:0 8px 20px rgba(16,124,65,.28),var(--g-hi)}
+  .btn.excel:hover:not(:disabled){box-shadow:0 12px 26px rgba(16,124,65,.38),var(--g-hi);transform:translateY(-1px)}
+  .btn.excel .spinner.dark{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+
+  /* ---- Barra de desplazamiento horizontal superior ----
+     Copia de la barra inferior de cada .table-wrap, puesta arriba de la
+     tabla para moverse a la derecha sin bajar hasta el final. */
+  .top-scroll{overflow-x:auto;overflow-y:hidden;height:14px;margin:0 0 6px;border-radius:8px;
+    background:rgba(15,32,53,.04)}
+  .top-scroll>div{height:1px}
+  .top-scroll::-webkit-scrollbar,.table-wrap::-webkit-scrollbar{height:11px}
+  .top-scroll::-webkit-scrollbar-thumb,.table-wrap::-webkit-scrollbar-thumb{background:rgba(30,76,122,.35);border-radius:10px}
+  .top-scroll::-webkit-scrollbar-thumb:hover,.table-wrap::-webkit-scrollbar-thumb:hover{background:rgba(30,76,122,.55)}
+  .top-scroll::-webkit-scrollbar-track,.table-wrap::-webkit-scrollbar-track{background:transparent}
   .btn.danger:hover{box-shadow:0 14px 30px rgba(192,69,60,.36),var(--g-hi)}
   .btn.sm{padding:7px 13px;font-size:12px;border-radius:11px;gap:6px}
   .btn.sm svg{width:13px;height:13px}
@@ -925,7 +940,7 @@
 const SUPABASE_URL      = "https://bemhrdkcrihjdkzfmtgf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlbWhyZGtjcmloamRremZtdGdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE5MjUsImV4cCI6MjEwMTg1NzkyNX0.9GUikIKf9B_H3TdmpJxLBiwNxDdu6putQ2iXhQPghck";
 
-const APP_VERSION = "v12 · periodo de prueba · calendario con eventos · etapas SENA";
+const APP_VERSION = "v13 · cursos de médicos · exportar a Excel · barra superior";
 
 /* Logotipo oficial: PNG blanco sobre fondo transparente (1536×308). Por eso
    siempre se dibuja sobre una placa azul. Si el archivo remoto no carga
@@ -1289,7 +1304,11 @@ const OPTIONAL_EMP_COLS = ["employee_type","staff_group","id_card_delivered","id
                            "sena_lectiva_start","sena_productiva_start","sena_months"];
 const hasSena = () => hasColumn("employees","sena_productiva_start");
 const SENA_COLS = ["sena_lectiva_start","sena_productiva_start","sena_months"];
+OPTIONAL_EMP_COLS.push("medical_category","specialty");
+const hasMedCat = () => hasColumn("employees","medical_category");
+const MED_COLS = ["medical_category","specialty"];
 const MIGRATION_HINT = {
+  medical_category: "La clasificación del médico no se guardó: ejecuta migracion_v13.sql en Supabase.",
   sena_productiva_start: "Las etapas SENA no se guardaron: ejecuta migracion_v12.sql en Supabase.",
   employee_type: "La clasificación no se guardó: falta la columna employee_type. Ejecuta migracion_tipo_empleado.sql en Supabase.",
   staff_group:   "El grupo (Empleados/Médicos/Aprendices) no se guardó: falta la columna staff_group. Ejecuta migracion_v10.sql en Supabase.",
@@ -1997,7 +2016,7 @@ function Dashboard({profile, onOpenEmployee}){
       + (withType ? ",employee_type" : "") + (withGroup ? ",staff_group" : "")
       + (withSena ? ","+SENA_COLS.join(",") : "");
     const mesActual = todayISO().slice(0,7);
-    const [empleados, contratos, vacaciones, incapacidades, dotaciones, eventos] = await Promise.all([
+    const [empleados, contratos, vacaciones, incapacidades, dotaciones, cursos, eventos] = await Promise.all([
       sb.from("employees").select(empCols).order("first_name").limit(1000),
       sb.from("contracts").select("id,employee_id,contract_number,type,start_date,end_date,status,employees(first_name,last_name)")
         .order("end_date",{ascending:true}).limit(1000),
@@ -2008,6 +2027,8 @@ function Dashboard({profile, onOpenEmployee}){
       sb.from("disabilities").select("id,employee_id,type,start_date,end_date,days,entity,employees(first_name,last_name)")
         .gte("end_date", mesActual+"-01").order("start_date",{ascending:false}).limit(500),
       sb.from("dotaciones").select("employee_id,year,delivery_no,delivered_date").eq("year", Number(todayISO().slice(0,4))),
+      // Cursos de médicos que vencen en los próximos días (o ya vencieron).
+      sb.from("medical_courses").select("id,employee_id,name,expires_date").limit(5000),
       // Un fallo del calendario no debe tumbar el resumen: se omite esa sección.
       fetchEventos(addDaysISO(todayISO(), 366), addDaysISO(todayISO(), -31)).catch(()=>({ missing:true, rows:[] })),
     ]);
@@ -2017,6 +2038,8 @@ function Dashboard({profile, onOpenEmployee}){
     return { empleados:empleados.data||[], contratos:contratos.data||[],
              vacaciones:vacaciones.data||[], incapacidades:incapacidades.data||[],
              dotaciones: dotaciones.error ? null : (dotaciones.data||[]),
+             // Sin migracion_v13.sql la tabla de cursos no existe: se omite esa alerta.
+             cursos: cursos.error ? null : (cursos.data||[]),
              eventos, withSena };
   }, []);
 
@@ -2031,7 +2054,7 @@ function Dashboard({profile, onOpenEmployee}){
     </div>
   );
 
-  const { empleados, contratos, vacaciones, incapacidades, dotaciones, eventos, withSena } = s.data;
+  const { empleados, contratos, vacaciones, incapacidades, dotaciones, cursos, eventos, withSena } = s.data;
   const hoy = todayISO();
   const nombre = (e)=> e ? `${e.first_name} ${e.last_name}` : "—";
   const nombreRel = (r)=> r.employees ? `${r.employees.first_name} ${r.employees.last_name}` : "—";
@@ -2088,6 +2111,16 @@ function Dashboard({profile, onOpenEmployee}){
     const restantes = diffDays(hoy, s.fin);
     return restantes<=30 ? { e, ...s, restantes } : null;
   }).filter(Boolean).sort((a,b)=>a.restantes-b.restantes);
+
+  /* Cursos de médicos activos: vencidos o que vencen en los próximos
+     DIAS_AVISO_CURSO días. Solo cuenta el registro más reciente de cada curso. */
+  const medicoPorId = {};
+  activos.forEach(e=>{ if(e.staff_group==="medico") medicoPorId[e.id]=e; });
+  const alertCursos = (cursos ? cursosActuales(cursos) : [])
+    .filter(c=>medicoPorId[c.employee_id])
+    .map(c=>({ c, e:medicoPorId[c.employee_id], est:estadoCurso(c.expires_date, hoy) }))
+    .filter(x=>x.est.key==="vencido" || x.est.key==="porvencer")
+    .sort((a,b)=>a.est.restantes-b.est.restantes);
 
   /* Recordatorios del calendario que ya están dentro de su aviso. */
   const alertEventos = eventos.missing ? [] : avisosPendientes(eventos.rows, hoy);
@@ -2190,19 +2223,6 @@ function Dashboard({profile, onOpenEmployee}){
   const HERO = KPIS.filter(k=>EXTRA[k.id]);
   const MINI = KPIS.filter(k=>!EXTRA[k.id]);
 
-  /* Últimos 12 meses (incluido el actual) para los dos gráficos. */
-  const meses12 = Array.from({length:12}, (_,i)=>{
-    const d = new Date(Number(hoy.slice(0,4)), Number(hoy.slice(5,7))-1-(11-i), 1);
-    const fin = i===11 ? hoy : isoOf(new Date(d.getFullYear(), d.getMonth()+1, 0));
-    return { key:isoOf(d).slice(0,7), fin,
-             label: MESES[d.getMonth()] + (i===0 || d.getMonth()===0 ? " "+String(d.getFullYear()).slice(2) : "") };
-  });
-  const plantilla = meses12.map(m=> empleados.filter(e=> e.hire_date && e.hire_date<=m.fin
-    && (!e.termination_date || e.termination_date>m.fin)).length);
-  const diasVacMes = meses12.map(m=> vacaciones.filter(v=>v.status!=="rechazada" && v.start_date.slice(0,7)===m.key)
-    .reduce((s,v)=>s+(v.days||0),0));
-  const etiquetas = meses12.map(m=>m.label);
-
   return (
     <div>
       <h1 className="page-title">Indicadores de talento humano</h1>
@@ -2234,20 +2254,7 @@ function Dashboard({profile, onOpenEmployee}){
       </div>
       {kpi && <KpiListModal kpi={kpi} onClose={()=>setKpi(null)} onOpenEmployee={onOpenEmployee}/>}
 
-      <div className="chart-grid">
-        <div className="card chart-card">
-          <h3>Personal activo</h3>
-          <p className="cs">Plantilla al cierre de cada mes · últimos 12 meses</p>
-          <LineArea labels={etiquetas} values={plantilla} unidad="personas"/>
-        </div>
-        <div className="card chart-card">
-          <h3>Vacaciones por mes</h3>
-          <p className="cs">Días hábiles según el mes de inicio · el mes actual va resaltado</p>
-          <Columns labels={etiquetas} values={diasVacMes} unidad="días" current={11}/>
-        </div>
-      </div>
-
-      <h2 className="section-title">Centro de alertas</h2>
+      <h2 className="section-title" style={{marginTop:22}}>Centro de alertas</h2>
       <div className="grid" style={{gap:10}}>
         <AlertGroup title="Recordatorios del calendario" icon="calendar" tone="ico-sky" count={alertEventos.length}
           level={alertEventos.some(x=>x.restantes<=0) ? "red" : "amber"}
@@ -2323,6 +2330,25 @@ function Dashboard({profile, onOpenEmployee}){
               </div>
             );
           })}
+        </AlertGroup>
+
+        <AlertGroup title="Cursos de médicos" icon="health" tone="ico-red" count={alertCursos.length}
+          level={alertCursos.some(x=>x.est.key==="vencido") ? "red" : "amber"}
+          sub={cursos ? `Vencidos o que vencen en los próximos ${DIAS_AVISO_CURSO} días` : "Requiere migracion_v13.sql"}
+          empty={cursos ? "Todos los cursos de los médicos están vigentes." : "Ejecuta migracion_v13.sql en Supabase para activar el control de cursos."}>
+          {alertCursos.map(x=>(
+            <div key={"m"+x.c.id} className={"alert "+(x.est.key==="vencido"||x.est.restantes<=7?"a-red":"a-amber")}
+              onClick={()=>onOpenEmployee(x.e.id, x.e.staff_group)} style={{cursor:"pointer"}}>
+              <div>
+                <div className="t">{x.c.name} · {x.e.first_name} {x.e.last_name}</div>
+                <div className="s">
+                  {x.est.restantes<0 ? `Venció hace ${-x.est.restantes} día(s)` : x.est.restantes===0 ? "Vence hoy" : `Vence en ${x.est.restantes} día(s)`}
+                  {" "}· {fmt(x.c.expires_date)}{x.e.medical_category ? " · "+MED_CATEGORIES[x.e.medical_category] : ""}
+                </div>
+              </div>
+              <span className={"badge "+x.est.badge}><span className="dot"/>{x.est.label}</span>
+            </div>
+          ))}
         </AlertGroup>
 
         <AlertGroup title="Aprendices SENA" icon="clipboard" tone="ico-teal" count={alertSena.length}
@@ -2453,13 +2479,203 @@ function SenaFields({form, setForm}){
   );
 }
 
+/* =====================================================================
+   EXPORTACIÓN A EXCEL
+   ExcelJS se descarga solo la primera vez que alguien exporta, para no
+   cargar la página con una librería que casi nunca se usa.
+   ===================================================================== */
+let __excelJs = null;
+function loadExcelJS(){
+  if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(!__excelJs) __excelJs = new Promise((ok, fail)=>{
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    s.onload  = ()=> window.ExcelJS ? ok(window.ExcelJS) : fail(new Error("ExcelJS no se cargó."));
+    s.onerror = ()=>{ __excelJs = null; fail(new Error("No se pudo descargar el generador de Excel. Revisa la conexión.")); };
+    document.head.appendChild(s);
+  });
+  return __excelJs;
+}
+
+/* Fecha AAAA-MM-DD → Date a medianoche UTC: Excel no tiene zona horaria y
+   ExcelJS escribe en UTC, así el día nunca se corre. */
+const excelDate = (iso)=> iso ? new Date(Date.UTC(+iso.slice(0,4), +iso.slice(5,7)-1, +iso.slice(8,10))) : null;
+
+async function exportarPersonalExcel({ rows, titulo, depName, filtros }){
+  const ExcelJS = await loadExcelJS();
+  const C = { navy:"FF0B2545", navy3:"FF1E4C7A", sky:"FF2E9FD6", teal:"FF1A9E97", zebra:"FFEFF6FC",
+              linea:"FFD3E0EC", tinta:"FF1B2B40", gris:"FF5B6B82", blanco:"FFFFFFFF" };
+  const fill = (argb)=>({ type:"pattern", pattern:"solid", fgColor:{ argb } });
+  const borde = (argb)=>({ top:{style:"thin",color:{argb}}, left:{style:"thin",color:{argb}},
+                           bottom:{style:"thin",color:{argb}}, right:{style:"thin",color:{argb}} });
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Talento Humano · Centro Especializado de Urología";
+  wb.created = new Date();
+  const ws = wb.addWorksheet(titulo.slice(0,31), {
+    views:[{ state:"frozen", ySplit:5, showGridLines:false }],
+    pageSetup:{ paperSize:9, orientation:"landscape", fitToPage:true, fitToWidth:1, fitToHeight:0,
+                margins:{ left:.4, right:.4, top:.6, bottom:.6, header:.3, footer:.3 }, printTitlesRow:"5:5" },
+    headerFooter:{ oddFooter:"&L&8Talento Humano · "+titulo+"&R&8Página &P de &N" },
+  });
+
+  const COLS = [
+    { h:"N.º",              w:6,  al:"center" },
+    { h:"Nombre completo",  w:34, al:"left"   },
+    { h:"Cédula",           w:16, al:"center" },
+    { h:"Cargo",            w:30, al:"left"   },
+    { h:"Área",             w:24, al:"left"   },
+    { h:"Ciudad",           w:18, al:"left"   },
+    { h:"Fecha de ingreso", w:17, al:"center" },
+  ];
+  ws.columns = COLS.map(c=>({ width:c.w }));
+  const ultimaCol = String.fromCharCode(64+COLS.length);   // "G"
+
+  /* Encabezado institucional: tres franjas de color. */
+  const franja = (n, texto, color, font, alto)=>{
+    ws.mergeCells(`A${n}:${ultimaCol}${n}`);
+    const c = ws.getCell(`A${n}`);
+    c.value = texto; c.fill = fill(color); c.font = font;
+    c.alignment = { vertical:"middle", horizontal:"left", indent:1 };
+    ws.getRow(n).height = alto;
+  };
+  const ahora = new Date();
+  franja(1, "CENTRO ESPECIALIZADO DE UROLOGÍA", C.navy, { name:"Calibri", size:16, bold:true, color:{argb:C.blanco} }, 32);
+  franja(2, "Talento Humano  ·  Listado de "+titulo.toLowerCase(), C.sky, { name:"Calibri", size:12, bold:true, color:{argb:C.blanco} }, 22);
+  franja(3, `Generado el ${ahora.toLocaleDateString("es-CO")} a las ${ahora.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})}`
+            + `  ·  ${rows.length} registro(s)` + (filtros ? "  ·  Filtros: "+filtros : ""),
+         "FFF4F8FC", { name:"Calibri", size:10, italic:true, color:{argb:C.gris} }, 20);
+  ws.getRow(4).height = 6;
+
+  /* Fila de títulos de columna. */
+  const head = ws.getRow(5);
+  COLS.forEach((c,i)=>{
+    const cell = head.getCell(i+1);
+    cell.value = c.h;
+    cell.fill = fill(C.navy3);
+    cell.font = { name:"Calibri", size:11, bold:true, color:{argb:C.blanco} };
+    cell.alignment = { vertical:"middle", horizontal:"center", wrapText:true };
+    cell.border = { ...borde(C.navy3), bottom:{ style:"medium", color:{argb:C.teal} } };
+  });
+  head.height = 26;
+
+  /* Datos con filas alternas. */
+  rows.forEach((e,i)=>{
+    const doc = String(e.document_number||"").trim();
+    const r = ws.addRow([
+      i+1,
+      `${e.first_name||""} ${e.last_name||""}`.trim(),
+      /^\d{1,15}$/.test(doc) ? Number(doc) : doc,
+      e.position_title || "—",
+      depName(e.department_id),
+      e.city || "—",
+      excelDate(e.hire_date) || "—",
+    ]);
+    r.height = 20;
+    r.eachCell({ includeEmpty:true }, (cell, col)=>{
+      const c = COLS[col-1];
+      cell.font = { name:"Calibri", size:10.5, color:{argb:C.tinta}, bold: col===2 };
+      cell.alignment = { vertical:"middle", horizontal:c.al, indent: c.al==="left" ? 1 : 0 };
+      cell.border = borde(C.linea);
+      if(i%2===1) cell.fill = fill(C.zebra);
+    });
+    r.getCell(1).font = { name:"Calibri", size:10, color:{argb:C.gris} };
+    r.getCell(3).numFmt = "0";
+    r.getCell(7).numFmt = "dd/mm/yyyy";
+  });
+
+  /* Total al pie. */
+  const fin = ws.addRow([]);
+  ws.mergeCells(`A${fin.number}:${ultimaCol}${fin.number}`);
+  const tot = ws.getCell(`A${fin.number}`);
+  tot.value = `Total de registros: ${rows.length}`;
+  tot.font = { name:"Calibri", size:11, bold:true, color:{argb:C.navy} };
+  tot.fill = fill("FFE3EEF8");
+  tot.alignment = { vertical:"middle", horizontal:"right", indent:1 };
+  tot.border = { top:{ style:"medium", color:{argb:C.navy3} } };
+  fin.height = 22;
+
+  ws.autoFilter = { from:{ row:5, column:1 }, to:{ row:5, column:COLS.length } };
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${titulo.replace(/\s+/g,"_")}_${todayISO()}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+
+/* =====================================================================
+   MÉDICOS · general o especialista, y sus cursos con vigencia
+   ===================================================================== */
+const MED_CATEGORIES = { general:"Médico general", especialista:"Especialista" };
+/* Sugerencias para el campo «Curso». Se suman los nombres que ya se han
+   usado con otros médicos de la misma clasificación, así la lista crece
+   con los cursos que tú vayas creando. */
+const CURSOS_SUGERIDOS = {
+  general: ["Soporte Vital Básico (BLS)","Soporte Vital Avanzado (ACLS)","Atención integral a víctimas de violencia sexual",
+            "Seguridad del paciente","Bioseguridad y control de infecciones","Manejo integral de residuos hospitalarios"],
+  especialista: ["Soporte Vital Avanzado (ACLS)","Seguridad del paciente","Protección radiológica",
+                 "Bioseguridad y control de infecciones","Manejo del dolor"],
+};
+const VIGENCIAS = [["12","1 año"],["24","2 años"],["36","3 años"],["60","5 años"],["6","6 meses"],["0","No vence"],["otra","Otra fecha"]];
+const DIAS_AVISO_CURSO = 30;
+/* Estado de un curso según su fecha de vencimiento. */
+function estadoCurso(expires, hoy){
+  if(!expires) return { key:"sin", label:"No vence", badge:"b-sky", restantes:null };
+  const r = diffDays(hoy, expires);
+  if(r<0)                 return { key:"vencido",   label:"Vencido",    badge:"b-red",   restantes:r };
+  if(r<=DIAS_AVISO_CURSO) return { key:"porvencer", label:"Por vencer", badge:"b-amber", restantes:r };
+  return                         { key:"vigente",   label:"Vigente",    badge:"b-green", restantes:r };
+}
+/* Curso vigente de cada nombre: si se renovó, solo cuenta el registro con
+   el vencimiento más lejano (o el que no vence). */
+function cursosActuales(cursos){
+  const m = {};
+  cursos.forEach(c=>{
+    const k = c.employee_id+"|"+c.name.trim().toLowerCase();
+    const p = m[k];
+    if(!p || (p.expires_date && (!c.expires_date || c.expires_date>p.expires_date))) m[k]=c;
+  });
+  return Object.values(m);
+}
+
+const medToForm = (e)=>({ medical_category:e.medical_category||"", specialty:e.specialty||"" });
+/* Fuera de médicos no se envía nada (ver senaPayload). */
+const medPayload = (f, group)=> group!=="medico" ? {} : {
+  medical_category: f.medical_category||null,
+  specialty: f.medical_category==="especialista" ? (f.specialty.trim()||null) : null,
+};
+
+function MedicoFields({form, setForm}){
+  return (
+    <React.Fragment>
+      <FieldBox label="Tipo de médico">
+        <div className="seg" role="group" aria-label="Tipo de médico">
+          {Object.entries(MED_CATEGORIES).map(([v,l])=>(
+            <button key={v} type="button" className={form.medical_category===v?"on":""} aria-pressed={form.medical_category===v}
+              onClick={()=>setForm({...form, medical_category: form.medical_category===v ? "" : v})}>
+              <Icon name="health"/>{l}
+            </button>
+          ))}
+        </div>
+      </FieldBox>
+      {form.medical_category==="especialista" &&
+        <Field label="Especialidad"><input value={form.specialty} placeholder="Ej.: Urología, Anestesiología…"
+          onChange={e=>setForm({...form,specialty:e.target.value})}/></Field>}
+    </React.Fragment>
+  );
+}
+
 const emptyEmp = (group="empleado")=>({
   first_name:"", last_name:"", document_type:"CC", document_number:"", birth_date:"", gender:"",
   email:"", phone:"", address:"", city:"", area_name:"", position_title:"", employee_type:"",
   staff_group:group, hire_date:todayISO(),
   termination_date:"", salary:"", bank_name:"", bank_account:"", emergency_contact:"", emergency_phone:"", notes:"",
   id_card_delivered:false, id_card_date:"",
-  ...SENA_BLANK, sena_productiva_start: group==="aprendiz" ? todayISO() : ""
+  ...SENA_BLANK, sena_productiva_start: group==="aprendiz" ? todayISO() : "",
+  medical_category:"", specialty:""
 });
 
 const empToForm = (e, departments)=>({
@@ -2473,7 +2689,7 @@ const empToForm = (e, departments)=>({
   termination_date:e.termination_date||"", salary:e.salary!=null?e.salary:"", bank_name:e.bank_name||"",
   bank_account:e.bank_account||"", emergency_contact:e.emergency_contact||"", emergency_phone:e.emergency_phone||"", notes:e.notes||"",
   id_card_delivered:!!e.id_card_delivered, id_card_date:e.id_card_date||"",
-  ...senaToForm(e)
+  ...senaToForm(e), ...medToForm(e)
 });
 
 /* Formulario reutilizable de personal: crea (sin id) o edita (con id).
@@ -2496,8 +2712,8 @@ function EmployeeFormModal({initial, profile, onClose, onSaved}){
       const area = await resolveDepartmentId(form.area_name, departments);
       const payload = {...form};
       delete payload.area_name; delete payload.id;
-      ["sena_ingreso", ...SENA_COLS].forEach(k=>{ delete payload[k]; });
-      Object.assign(payload, senaPayload(form, form.staff_group));
+      ["sena_ingreso", ...SENA_COLS, ...MED_COLS].forEach(k=>{ delete payload[k]; });
+      Object.assign(payload, senaPayload(form, form.staff_group), medPayload(form, form.staff_group));
       payload.department_id = area.id;
       ["birth_date","termination_date","salary","employee_type","id_card_date"].forEach(k=>{ if(payload[k]==="") payload[k]=null; });
       if(!payload.id_card_delivered) payload.id_card_date = null;
@@ -2531,6 +2747,7 @@ function EmployeeFormModal({initial, profile, onClose, onSaved}){
         <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>
         <Field label="Cargo"><input value={form.position_title} onChange={set("position_title")}/></Field>
         <Field label="Grupo"><select value={form.staff_group} onChange={set("staff_group")}>{opts(STAFF_LABELS)}</select></Field>
+        {form.staff_group==="medico" && <MedicoFields form={form} setForm={setForm}/>}
         <FieldBox label="Clasificación">
           <SegClasificacion value={form.employee_type} onChange={(v)=>setForm({...form,employee_type:v})}/>
         </FieldBox>
@@ -2579,9 +2796,13 @@ function Staff({group, profile, onOpenEmployee}){
   const [term,setTerm] = useState("");
 
   const esAprendiz = group==="aprendiz";
+  const esMedico = group==="medico";
+  const [tipoMed,setTipoMed] = useState("");   // filtro de médicos: general | especialista
+  const [exportando,setExportando] = useState(false);
   const blank = { nombre:"", document_number:"", cargo:"", ciudad:"", area_name:"", employee_type:"",
     hire_date:todayISO(), termination_date:"", contract_type: esAprendiz ? "aprendizaje" : "termino_fijo", end_date:"",
-    ...SENA_BLANK, sena_productiva_start: esAprendiz ? todayISO() : "" };
+    ...SENA_BLANK, sena_productiva_start: esAprendiz ? todayISO() : "",
+    medical_category:"", specialty:"" };
   const [form,setForm] = useState(blank);
   const [busy,setBusy] = useState(false);
 
@@ -2592,8 +2813,10 @@ function Staff({group, profile, onOpenEmployee}){
     // migrar haría fallar toda la consulta con 42703.
     const withType  = await hasEmployeeType();
     const withGroup = await hasStaffGroup();
+    const withMed   = group==="medico" && await hasMedCat();
     const cols = "id,first_name,last_name,document_number,position_title,city,department_id,status,hire_date,termination_date"
-      + (withType ? ",employee_type" : "") + (withGroup ? ",staff_group" : "");
+      + (withType ? ",employee_type" : "") + (withGroup ? ",staff_group" : "")
+      + (withMed ? ","+MED_COLS.join(",") : "");
     let query = sb.from("employees").select(cols).order("first_name",{ascending:true}).limit(500);
     if(withGroup) query = query.eq("staff_group", group);
     if(term) query = query.or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,document_number.ilike.%${term}%`);
@@ -2608,8 +2831,25 @@ function Staff({group, profile, onOpenEmployee}){
      salen de lo que ya trae la búsqueda (nombre/área). */
   const rowsAll = data.data ? data.data.rows : [];
   const ciudades = cityOptions(rowsAll, ciudad);
-  const rows = ciudad ? rowsAll.filter(e=>cityKey(e.city)===ciudad) : rowsAll;
-  const hayFiltros = q || dep || ciudad;
+  const rows = rowsAll.filter(e=> (!ciudad || cityKey(e.city)===ciudad)
+                               && (!tipoMed || e.medical_category===tipoMed));
+  const hayFiltros = q || dep || ciudad || tipoMed;
+
+  /* Exporta exactamente la lista que se ve (con los filtros aplicados). */
+  const exportar = async ()=>{
+    if(!rows.length){ toast("No hay registros para exportar.","info"); return; }
+    setExportando(true);
+    try{
+      const filtros = [
+        q && `Búsqueda: «${q}»`, dep && `Área: ${depName(dep)}`,
+        ciudad && `Ciudad: ${(ciudades.find(c=>c.key===ciudad)||{}).label||ciudad}`,
+        tipoMed && `Tipo: ${MED_CATEGORIES[tipoMed]}`,
+      ].filter(Boolean).join(" · ");
+      await exportarPersonalExcel({ rows, titulo:cfg.label, depName, filtros });
+      toast("Archivo de Excel generado.","ok");
+    }catch(e){ toast("No se pudo generar el Excel: "+friendlyError(e),"err"); }
+    finally{ setExportando(false); }
+  };
 
   const registrarIngreso = async ()=>{
     if(!form.nombre.trim()||!form.document_number.trim()){ toast("Nombre y cédula son obligatorios.","err"); return; }
@@ -2627,7 +2867,7 @@ function Staff({group, profile, onOpenEmployee}){
         staff_group:group,
         hire_date:form.hire_date, termination_date:form.termination_date||null,
         status: form.termination_date ? "retirado" : "activo", created_by:profile.id,
-        ...senaPayload(form, group)
+        ...senaPayload(form, group), ...medPayload(form, group)
       };
       const { data:emp, dropped } = await saveEmployee(empPayload, null);
       dropped.forEach(c=>{ if(MIGRATION_HINT[c]) toast(MIGRATION_HINT[c],"info"); });
@@ -2653,7 +2893,13 @@ function Staff({group, profile, onOpenEmployee}){
     <div>
       <div className="page-head">
         <h2 className="section-title" style={{margin:0}}>{cfg.label}</h2>
-        {write && <button className="btn ghost" onClick={()=>setShowForm(true)}><Icon name="plus"/>Ficha completa (área, salario, banco…)</button>}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button className="btn excel" onClick={exportar} disabled={exportando||data.loading}
+            title="Descarga la lista visible (con los filtros aplicados) en Excel">
+            {exportando ? <span className="spinner dark"/> : <Icon name="download"/>}Exportar a Excel
+          </button>
+          {write && <button className="btn ghost" onClick={()=>setShowForm(true)}><Icon name="plus"/>Ficha completa (área, salario, banco…)</button>}
+        </div>
       </div>
 
       {!write && (
@@ -2687,6 +2933,7 @@ function Staff({group, profile, onOpenEmployee}){
             <Field label="Tipo de contrato"><select value={form.contract_type} onChange={e=>setForm({...form,contract_type:e.target.value})}>{opts(CONTRACT_TYPES)}</select></Field>
             {form.contract_type==="termino_fijo" && <Field label="Fecha fin del contrato"><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})}/></Field>}
             {esAprendiz && <SenaFields form={form} setForm={setForm}/>}
+            {esMedico && <MedicoFields form={form} setForm={setForm}/>}
           </div>
           <div style={{marginTop:16}}>
             <button className="btn accent" disabled={busy} onClick={registrarIngreso}>
@@ -2711,7 +2958,15 @@ function Staff({group, profile, onOpenEmployee}){
             {ciudades.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
         </Field>
-        {hayFiltros && <button className="btn ghost" onClick={()=>{ setQ(""); setDep(""); setCiudad(""); }}><Icon name="refresh"/>Limpiar</button>}
+        {esMedico && (
+          <Field label="Tipo de médico">
+            <select value={tipoMed} onChange={e=>setTipoMed(e.target.value)}>
+              <option value="">Todos</option>
+              {Object.entries(MED_CATEGORIES).map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
+        )}
+        {hayFiltros && <button className="btn ghost" onClick={()=>{ setQ(""); setDep(""); setCiudad(""); setTipoMed(""); }}><Icon name="refresh"/>Limpiar</button>}
       </div>
       {!data.loading && !data.error && (
         <div className="chips"><span className="chip"><b>{rows.length}</b> {rows.length===1?"registro":"registros"}</span></div>
@@ -2722,13 +2977,17 @@ function Staff({group, profile, onOpenEmployee}){
        rows.length===0 ? <Empty text={`No hay registros de ${cfg.label.toLowerCase()} que coincidan con los filtros.`}/> :
        <div className="table-wrap">
         <table>
-          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Clasificación</th><th>Área</th><th>Ciudad</th><th>Ingreso</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th>{esMedico && <th>Tipo de médico</th>}<th>Clasificación</th><th>Área</th><th>Ciudad</th><th>Ingreso</th><th>Estado</th></tr></thead>
           <tbody>
             {rows.map(e=>(
               <tr key={e.id} onClick={()=>onOpenEmployee(e.id)}>
                 <td><b>{e.first_name} {e.last_name}</b></td>
                 <td>{e.document_number}</td>
                 <td>{e.position_title||"—"}</td>
+                {esMedico && <td>{e.medical_category
+                  ? <span className={"badge "+(e.medical_category==="especialista"?"b-amber":"b-sky")}><span className="dot"/>
+                      {MED_CATEGORIES[e.medical_category]}{e.specialty ? " · "+e.specialty : ""}</span>
+                  : "—"}</td>}
                 <td>{EMPLOYEE_TYPES[e.employee_type] ? <TipoBadge value={e.employee_type}/> : "—"}</td>
                 <td>{depName(e.department_id)}</td>
                 <td>{e.city||"—"}</td>
@@ -2843,6 +3102,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
   const TABS = [
     {id:"personal",label:"Personal"},
     {id:"laboral",label:"Laboral"},
+    ...(e.staff_group==="medico" ? [{id:"cursos",label:"Cursos"}] : []),
     {id:"cargos",label:"Historial de cargos"},
     {id:"contratos",label:"Contratos"},
     ...(cfg.ss ? [{id:"seguridad",label:"Seguridad social"}] : []),
@@ -2868,6 +3128,8 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
             <span>Cargo: <b>{e.position_title||"—"}</b></span>
             <span>Área: <b>{depName(e.department_id)}</b></span>
             <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
+            {e.staff_group==="medico" && e.medical_category &&
+              <span>Tipo: <b>{MED_CATEGORIES[e.medical_category]}{e.specialty ? " · "+e.specialty : ""}</b></span>}
             {e.termination_date && <span>Retiro: <b>{fmt(e.termination_date)}</b></span>}
             {"id_card_delivered" in e && <span>Carné: <b style={{color:e.id_card_delivered?"var(--green)":"var(--red)"}}>
               {e.id_card_delivered ? "Entregado"+(e.id_card_date?" el "+fmt(e.id_card_date):"") : "No entregado"}</b></span>}
@@ -2908,6 +3170,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
 
       {tab==="personal" && <TabPersonal e={e} showSalary={showSalary} onEdit={onEdit}/>}
       {tab==="laboral" && <TabLaboral e={e} depName={depName} showSalary={showSalary} onEdit={onEdit}/>}
+      {tab==="cursos" && <TabCursos emp={e} profile={profile}/>}
       {tab==="cargos" && <TabCargos emp={e} profile={profile} departments={departments} onChanged={emp.reload}/>}
       {tab==="dotacion" && <TabDotacion emp={e} profile={profile}/>}
       {tab==="contratos" && <TabContratos employeeId={e.id} profile={profile} departments={departments}/>}
@@ -2963,12 +3226,169 @@ function TabPersonal({e, showSalary, onEdit}){
     </div>
   );
 }
+/* Crear / editar / renovar un curso. La vigencia calcula el vencimiento
+   desde la fecha de realización; «Otra fecha» deja escribirlo a mano. */
+function CursoModal({initial, emp, sugerencias, profile, onClose, onSaved}){
+  const toast = useToast();
+  const isEdit = !!initial.id;
+  const [f,setF] = useState({
+    name:initial.name||"", institution:initial.institution||"", issued_date:initial.issued_date||todayISO(),
+    vigencia: isEdit ? (initial.expires_date ? "otra" : "0") : "12",
+    expires_date:initial.expires_date||"", observations:initial.observations||"",
+  });
+  const [busy,setBusy] = useState(false);
+  const set = (k)=>(e)=>setF({...f,[k]:e.target.value});
+  const meses = Number(f.vigencia);
+  const vence = f.vigencia==="otra" ? f.expires_date
+              : meses>0 && f.issued_date ? addMonthsISO(f.issued_date, meses) : "";
+  const est = estadoCurso(vence||null, todayISO());
+
+  const guardar = async ()=>{
+    if(!f.name.trim()){ toast("Escribe el nombre del curso.","err"); return; }
+    if(f.vigencia==="otra" && !f.expires_date){ toast("Indica la fecha de vencimiento.","err"); return; }
+    if(vence && f.issued_date && vence<f.issued_date){ toast("El vencimiento no puede ser anterior a la fecha de realización.","err"); return; }
+    setBusy(true);
+    try{
+      const p = { employee_id:emp.id, name:f.name.trim(), institution:f.institution.trim()||null,
+        issued_date:f.issued_date||null, expires_date:vence||null, observations:f.observations.trim()||null };
+      const r = isEdit ? await sb.from("medical_courses").update(p).eq("id",initial.id)
+                       : await sb.from("medical_courses").insert({...p, created_by:profile.id});
+      if(r.error) throw r.error;
+      toast(isEdit ? "Curso actualizado." : "Curso registrado.","ok"); onSaved(); onClose();
+    }catch(e){ toast(isMissingTable(e) ? "Falta la tabla de cursos: ejecuta migracion_v13.sql en Supabase." : friendlyError(e),"err"); }
+    finally{ setBusy(false); }
+  };
+
+  return (
+    <Modal title={isEdit ? "Editar curso" : initial.name ? "Renovar curso" : "Agregar curso"} onClose={onClose} footer={<React.Fragment>
+        <button className="btn accent" disabled={busy} onClick={guardar}>{busy?<span className="spinner"/>:<Icon name="check"/>}Guardar</button>
+        <button className="btn ghost" onClick={onClose}>Cancelar</button>
+      </React.Fragment>}>
+      <datalist id="th-cursos">{sugerencias.map(s=><option key={s} value={s}/>)}</datalist>
+      <div className="grid" style={{gap:12}}>
+        <Field label="Curso"><input autoFocus list="th-cursos" value={f.name} onChange={set("name")}
+          placeholder="Escribe el curso o elige uno de la lista"/></Field>
+        <Field label="Institución (opcional)"><input value={f.institution} onChange={set("institution")} placeholder="Quién lo certifica"/></Field>
+        <div className="grid form-grid">
+          <Field label="Fecha de realización"><input type="date" value={f.issued_date} onChange={set("issued_date")}/></Field>
+          <Field label="Vigencia">
+            <select value={f.vigencia} onChange={e=>setF({...f, vigencia:e.target.value, expires_date: e.target.value==="otra" ? (f.expires_date||vence) : f.expires_date})}>
+              {VIGENCIAS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
+          {f.vigencia==="otra" && <Field label="Fecha de vencimiento"><input type="date" value={f.expires_date} onChange={set("expires_date")}/></Field>}
+        </div>
+        <p className="muted" style={{fontSize:12.5,margin:0}}>
+          {vence ? <span>Vence el <b>{fmt(vence)}</b> · <span className={"badge "+est.badge}><span className="dot"/>{est.label}</span>.
+                     {" "}Te avisaremos en el Resumen {DIAS_AVISO_CURSO} días antes.</span>
+                 : "Este curso no vence: no generará alertas."}
+        </p>
+        <Field label="Observaciones (opcional)"><textarea value={f.observations} onChange={set("observations")}/></Field>
+      </div>
+    </Modal>
+  );
+}
+
+function TabCursos({emp, profile}){
+  const toast = useToast();
+  const write = can(profile,"employees","write");
+  const [editando,setEditando] = useState(null);
+  const hoy = todayISO();
+
+  const data = useAsync(async ()=>{
+    const [mios, nombres] = await Promise.all([
+      sb.from("medical_courses").select("*").eq("employee_id", emp.id).order("expires_date",{ascending:true,nullsFirst:false}),
+      sb.from("medical_courses").select("name").limit(2000),
+    ]);
+    if(mios.error){ if(isMissingTable(mios.error)) return { missing:true, rows:[], nombres:[] }; throw mios.error; }
+    return { missing:false, rows:mios.data||[], nombres:(nombres.data||[]).map(r=>r.name) };
+  }, [emp.id]);
+
+  if(data.loading) return <SkeletonRows cols={5} rows={3}/>;
+  if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
+  if(data.data.missing) return (
+    <Notice kind="amber" icon="alert">Para registrar cursos de médicos ejecuta <code>migracion_v13.sql</code> en Supabase.</Notice>
+  );
+
+  const rows = data.data.rows;
+  const actuales = new Set(cursosActuales(rows).map(c=>c.id));
+  const sugerencias = Array.from(new Set([
+    ...(CURSOS_SUGERIDOS[emp.medical_category] || [...CURSOS_SUGERIDOS.general, ...CURSOS_SUGERIDOS.especialista]),
+    ...data.data.nombres,
+  ].map(s=>s.trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
+  const cuenta = (k)=> rows.filter(c=>actuales.has(c.id) && estadoCurso(c.expires_date,hoy).key===k).length;
+
+  const eliminar = async (c)=>{
+    if(!confirm("¿Eliminar el curso «"+c.name+"»?")) return;
+    const { error } = await sb.from("medical_courses").delete().eq("id", c.id);
+    if(error){ toast(friendlyError(error),"err"); return; }
+    toast("Curso eliminado.","ok"); data.reload();
+  };
+
+  return (
+    <div className="card">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:12}}>
+        <div>
+          <h3 className="section-title" style={{fontSize:14,margin:0}}>Cursos y certificaciones</h3>
+          <div className="muted" style={{fontSize:12.5,marginTop:4}}>
+            {emp.medical_category ? MED_CATEGORIES[emp.medical_category]+(emp.specialty?" · "+emp.specialty:"")
+                                  : "Sin clasificar: edita la ficha para indicar si es médico general o especialista."}
+          </div>
+        </div>
+        {write && <button className="btn accent sm" onClick={()=>setEditando({})}><Icon name="plus"/>Agregar curso</button>}
+      </div>
+      <div className="chips" style={{marginBottom:12}}>
+        <span className="chip">Vigentes <b>{cuenta("vigente")+cuenta("sin")}</b></span>
+        <span className="chip" style={{color:"#8A5A12"}}>Por vencer <b>{cuenta("porvencer")}</b></span>
+        <span className="chip" style={{color:"#9B342C"}}>Vencidos <b>{cuenta("vencido")}</b></span>
+      </div>
+      {rows.length===0 ? <Empty text="Aún no hay cursos registrados para este médico."/> :
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Curso</th><th>Institución</th><th>Realizado</th><th>Vence</th><th>Estado</th>{write && <th></th>}</tr></thead>
+            <tbody>
+              {rows.map(c=>{
+                const est = estadoCurso(c.expires_date, hoy);
+                const reemplazado = !actuales.has(c.id);
+                return (
+                  <tr key={c.id} style={reemplazado?{opacity:.5}:null}>
+                    <td><b>{c.name}</b>{c.observations && <div className="muted" style={{fontSize:11.5}}>{c.observations}</div>}</td>
+                    <td>{c.institution||"—"}</td>
+                    <td>{fmt(c.issued_date)}</td>
+                    <td>{c.expires_date ? fmt(c.expires_date) : "No vence"}</td>
+                    <td>{reemplazado ? <span className="badge b-sky"><span className="dot"/>Renovado</span> : <span>
+                      <span className={"badge "+est.badge}><span className="dot"/>{est.label}</span>
+                      {est.restantes!=null && <div className="muted" style={{fontSize:11.5,marginTop:3}}>
+                        {est.restantes<0 ? `hace ${-est.restantes} día(s)` : est.restantes===0 ? "vence hoy" : `faltan ${est.restantes} día(s)`}</div>}
+                    </span>}</td>
+                    {write && <td style={{whiteSpace:"nowrap"}}>
+                      {!reemplazado && c.expires_date && <button className="btn ghost sm" title="Registrar la renovación"
+                        onClick={()=>setEditando({ name:c.name, institution:c.institution })}><Icon name="refresh"/>Renovar</button>}{" "}
+                      <button className="btn ghost sm" onClick={()=>setEditando(c)} title="Editar"><Icon name="edit"/></button>{" "}
+                      <button className="btn ghost sm" onClick={()=>eliminar(c)} title="Eliminar"><Icon name="trash"/></button>
+                    </td>}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>}
+      {editando && <CursoModal initial={editando} emp={emp} sugerencias={sugerencias} profile={profile}
+        onClose={()=>setEditando(null)} onSaved={data.reload}/>}
+    </div>
+  );
+}
+
 function TabLaboral({e, depName, showSalary, onEdit}){
   const sena = e.staff_group==="aprendiz" ? senaEtapa(e) : null;
   return (
     <div className="card">
       <TabHead title="Información laboral" onEdit={onEdit}/>
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
+        {e.staff_group==="medico" && "medical_category" in e && <React.Fragment>
+          <Info label="Tipo de médico" value={MED_CATEGORIES[e.medical_category] || "Sin clasificar"}/>
+          {e.medical_category==="especialista" && <Info label="Especialidad" value={e.specialty}/>}
+        </React.Fragment>}
         {e.staff_group==="aprendiz" && "sena_productiva_start" in e && <React.Fragment>
           <Info label="Etapa SENA actual" value={sena ? cap(sena.etapa)+" · termina el "+fmt(sena.fin) : "Sin fechas (edita la ficha)"}/>
           {e.sena_lectiva_start && <Info label="Inicio etapa lectiva" value={fmt(e.sena_lectiva_start)}/>}
@@ -4870,17 +5290,32 @@ function Estadisticas(){
   const [anio,setAnio] = useState(String(new Date().getFullYear()));
 
   const data = useAsync(async ()=>{
-    const [dis, emps] = await Promise.all([
+    const [dis, emps, vacs] = await Promise.all([
       sb.from("disabilities").select("id,type,start_date,days").order("start_date",{ascending:false}).limit(3000),
       sb.from("employees").select("id,hire_date,termination_date").limit(3000),
+      sb.from("vacations").select("start_date,days,status").gte("start_date", addDaysISO(todayISO(),-400)).limit(3000),
     ]);
-    if(dis.error) throw dis.error; if(emps.error) throw emps.error;
-    return { dis:dis.data||[], emps:emps.data||[] };
+    if(dis.error) throw dis.error; if(emps.error) throw emps.error; if(vacs.error) throw vacs.error;
+    return { dis:dis.data||[], emps:emps.data||[], vacs:vacs.data||[] };
   }, []);
 
-  if(data.loading) return <div><h2 className="section-title">Estadísticas</h2><SkeletonRows cols={5} rows={6}/></div>;
+  if(data.loading) return <div><h2 className="section-title">Gráficas y estadísticas</h2><SkeletonRows cols={5} rows={6}/></div>;
   if(data.error) return <ErrorCard error={data.error} onRetry={data.reload}/>;
-  const { dis, emps } = data.data;
+  const { dis, emps, vacs } = data.data;
+
+  /* Últimos 12 meses (incluido el actual): personal activo y vacaciones. */
+  const hoy = todayISO();
+  const meses12 = Array.from({length:12}, (_,i)=>{
+    const d = new Date(Number(hoy.slice(0,4)), Number(hoy.slice(5,7))-1-(11-i), 1);
+    const fin = i===11 ? hoy : isoOf(new Date(d.getFullYear(), d.getMonth()+1, 0));
+    return { key:isoOf(d).slice(0,7), fin,
+             label: MESES[d.getMonth()] + (i===0 || d.getMonth()===0 ? " "+String(d.getFullYear()).slice(2) : "") };
+  });
+  const plantilla = meses12.map(m=> emps.filter(e=> e.hire_date && e.hire_date<=m.fin
+    && (!e.termination_date || e.termination_date>m.fin)).length);
+  const diasVacMes = meses12.map(m=> vacs.filter(v=>v.status!=="rechazada" && v.start_date.slice(0,7)===m.key)
+    .reduce((s,v)=>s+(v.days||0),0));
+  const etiquetas = meses12.map(m=>m.label);
 
   /* Años con algún movimiento, de más reciente a más antiguo. */
   const anios = Array.from(new Set([
@@ -4933,7 +5368,7 @@ function Estadisticas(){
   return (
     <div>
       <div className="page-head">
-        <h2 className="section-title" style={{margin:0}}>Estadísticas</h2>
+        <h2 className="section-title" style={{margin:0}}>Gráficas y estadísticas</h2>
         {/* Filtros en una sola fila sobre los gráficos. */}
         <label className="f" style={{flexDirection:"row",alignItems:"center",gap:10,fontSize:12.5}}>
           <span style={{whiteSpace:"nowrap"}}>Año</span>
@@ -4963,6 +5398,19 @@ function Estadisticas(){
           <div style={{minWidth:0}}><div className="l">Retiros {anioSel}</div>
             <div className="n" style={{color:"var(--red)"}}>{retAnio}</div></div>
           <div className="kpi-ico ico-red"><Icon name="logout"/></div>
+        </div>
+      </div>
+
+      <div className="chart-grid">
+        <div className="card chart-card">
+          <h3>Personal activo</h3>
+          <p className="cs">Plantilla al cierre de cada mes · últimos 12 meses</p>
+          <LineArea labels={etiquetas} values={plantilla} unidad="personas"/>
+        </div>
+        <div className="card chart-card">
+          <h3>Vacaciones por mes</h3>
+          <p className="cs">Días hábiles según el mes de inicio · el mes actual va resaltado</p>
+          <Columns labels={etiquetas} values={diasVacMes} unidad="días" current={11}/>
         </div>
       </div>
 
@@ -5135,6 +5583,61 @@ function Permisos({session, profile}){
 }
 
 /* =====================================================================
+   BARRA DE DESPLAZAMIENTO SUPERIOR
+   A cada .table-wrap que se desborda a lo ancho se le pone encima una
+   barra gemela sincronizada: así se mueve a la derecha sin bajar hasta el
+   final de la tabla. Es global (vigila el DOM), de modo que cubre todas
+   las tablas, también las de ventanas emergentes y las que se agreguen.
+   ===================================================================== */
+function useTopScrollbars(){
+  useEffect(()=>{
+    const enlazar = (wrap)=>{
+      const bar = document.createElement("div");
+      bar.className = "top-scroll"; bar.setAttribute("aria-hidden","true");
+      const inner = document.createElement("div");
+      bar.appendChild(inner);
+      wrap.parentNode.insertBefore(bar, wrap);
+      wrap.__topBar = bar; bar.__wrap = wrap;
+      bar.addEventListener("scroll", ()=>{ if(wrap.scrollLeft!==bar.scrollLeft) wrap.scrollLeft = bar.scrollLeft; });
+      const deWrap = ()=>{ if(bar.scrollLeft!==wrap.scrollLeft) bar.scrollLeft = wrap.scrollLeft; };
+      wrap.addEventListener("scroll", deWrap);
+      const medir = ()=>{
+        inner.style.width = wrap.scrollWidth+"px";
+        bar.style.display = wrap.scrollWidth > wrap.clientWidth+1 ? "" : "none";
+        deWrap();
+      };
+      const ro = new ResizeObserver(medir);
+      ro.observe(wrap);
+      if(wrap.firstElementChild) ro.observe(wrap.firstElementChild);
+      bar.__ro = ro;
+      medir();
+    };
+    const revisar = ()=>{
+      // Barras huérfanas: su tabla desapareció o ya no está justo debajo.
+      document.querySelectorAll(".top-scroll").forEach(b=>{
+        if(!b.__wrap || !b.__wrap.isConnected || b.nextElementSibling!==b.__wrap){
+          if(b.__ro) b.__ro.disconnect();
+          if(b.__wrap) b.__wrap.__topBar = null;
+          b.remove();
+        }
+      });
+      document.querySelectorAll(".table-wrap").forEach(w=>{
+        if(!w.__topBar && w.parentNode) enlazar(w);
+        else if(w.__topBar && w.firstElementChild) w.__topBar.__ro.observe(w.firstElementChild);
+      });
+    };
+    let pendiente = 0;
+    const mo = new MutationObserver(()=>{ if(!pendiente) pendiente = requestAnimationFrame(()=>{ pendiente=0; revisar(); }); });
+    mo.observe(document.body, { childList:true, subtree:true });
+    revisar();
+    return ()=>{
+      mo.disconnect(); cancelAnimationFrame(pendiente);
+      document.querySelectorAll(".top-scroll").forEach(b=>{ if(b.__ro) b.__ro.disconnect(); if(b.__wrap) b.__wrap.__topBar=null; b.remove(); });
+    };
+  }, []);
+}
+
+/* =====================================================================
    APP PRINCIPAL (post-login)
    ===================================================================== */
 function Workspace({session, profile, onSignOut}){
@@ -5143,6 +5646,7 @@ function Workspace({session, profile, onSignOut}){
   const [departments,setDepartments] = useState([]);
   const [ssEntities,setSsEntities] = useState([]);
   const [menuOpen,setMenuOpen] = useState(false);
+  useTopScrollbars();
 
   /* Los catálogos se recargan cuando un formulario crea un área nueva. */
   const loadCatalogs = useCallback(async ()=>{
@@ -5208,7 +5712,7 @@ function Workspace({session, profile, onSignOut}){
     {id:"vacaciones",    label:"Vacaciones",       ico:"beach",     group:"Operación",      show:true},
     {id:"incapacidades", label:"Incapacidades",    ico:"health",    group:"Operación",      show:true},
     {id:"calendario",    label:"Calendario",       ico:"calendar",  group:"Operación",      show:true},
-    {id:"estadisticas",  label:"Estadísticas",     ico:"dashboard", group:"Operación",      show:true},
+    {id:"estadisticas",  label:"Gráficas",         ico:"trend",     group:"Operación",      show:true},
     {id:"usuarios",      label:"Usuarios y roles", ico:"settings",  group:"Administración", show:isAdmin},
     {id:"permisos",      label:"Permisos",         ico:"shield",    group:"Administración", show:true},
   ].filter(n=>n.show);
@@ -5219,7 +5723,7 @@ function Workspace({session, profile, onSignOut}){
     empleados:  empId ? "Expediente del empleado" : "Empleados",
     medicos:    empId ? "Expediente del médico"   : "Médicos",
     aprendices: empId ? "Expediente del aprendiz" : "Aprendices",
-    vacaciones:"Vacaciones", incapacidades:"Incapacidades", calendario:"Calendario", estadisticas:"Estadísticas",
+    vacaciones:"Vacaciones", incapacidades:"Incapacidades", calendario:"Calendario", estadisticas:"Gráficas y estadísticas",
     usuarios:"Usuarios y roles", permisos:"Permisos",
   };
   const current = NAV.find(n=>n.id===view);
