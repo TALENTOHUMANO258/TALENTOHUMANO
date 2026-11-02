@@ -2060,6 +2060,8 @@ function Dashboard({profile, onOpenEmployee}){
   const nombreRel = (r)=> r.employees ? `${r.employees.first_name} ${r.employees.last_name}` : "—";
   const grupoDe = (e)=> STAFF_LABELS[e.staff_group||"empleado"] || "Empleados";
   const activos   = empleados.filter(e=>e.status==="activo");
+  // Los médicos van por prestación de servicios: sin vacaciones, dotación ni periodo de prueba.
+  const activosLaborales = activos.filter(e=>e.staff_group!=="medico");
   const vigentes  = contratos.filter(c=>c.status==="vigente");
   const mesActual = hoy.slice(0,7);
   const incapsMes = incapacidades.filter(d=>d.start_date.slice(0,7)===mesActual);
@@ -2073,7 +2075,7 @@ function Dashboard({profile, onOpenEmployee}){
      antiguos, que es como se conceden. */
   const tomadasPorEmp = {};
   vacaciones.forEach(v=>{ if(v.status!=="rechazada") tomadasPorEmp[v.employee_id]=(tomadasPorEmp[v.employee_id]||0)+v.days; });
-  const alertVac = activos.map(e=>{
+  const alertVac = activosLaborales.map(e=>{
     const periodos = vacationPeriods(e.hire_date, e.termination_date);
     const cumplidos = periodos.filter(p=>p.cumplido);
     const causadosCumplidos = cumplidos.reduce((s,p)=>s+p.causados,0);
@@ -2092,7 +2094,7 @@ function Dashboard({profile, onOpenEmployee}){
     const p = primerContrato[c.employee_id];
     if(!p || c.start_date<p.start_date) primerContrato[c.employee_id]=c;
   });
-  const alertPrueba = activos.map(e=>{
+  const alertPrueba = activosLaborales.map(e=>{
     const c = primerContrato[e.id];
     const fin = c ? periodoPruebaFin(c.type, c.start_date, c.end_date)
              : (e.staff_group==="aprendiz" ? null : periodoPruebaFin("termino_indefinido", e.hire_date, null));
@@ -2140,7 +2142,7 @@ function Dashboard({profile, onOpenEmployee}){
       const fecha = dotacionFecha(anio, ent);
       const r = diffDays(hoy, fecha);
       if(r > 30) return;
-      activos.forEach(e=>{
+      activosLaborales.forEach(e=>{
         if(entregada[e.id+"-"+ent.no] || !dotacionAplica(e, fecha).ok) return;
         alertDot.push({ key:e.id+"-"+ent.no, e, ent, fecha, restantes:r });
       });
@@ -2501,7 +2503,7 @@ function loadExcelJS(){
    ExcelJS escribe en UTC, así el día nunca se corre. */
 const excelDate = (iso)=> iso ? new Date(Date.UTC(+iso.slice(0,4), +iso.slice(5,7)-1, +iso.slice(8,10))) : null;
 
-async function exportarPersonalExcel({ rows, titulo, depName, filtros }){
+async function exportarPersonalExcel({ rows, titulo, depName, filtros, esMedico }){
   const ExcelJS = await loadExcelJS();
   const C = { navy:"FF0B2545", navy3:"FF1E4C7A", sky:"FF2E9FD6", teal:"FF1A9E97", zebra:"FFEFF6FC",
               linea:"FFD3E0EC", tinta:"FF1B2B40", gris:"FF5B6B82", blanco:"FFFFFFFF" };
@@ -2524,7 +2526,7 @@ async function exportarPersonalExcel({ rows, titulo, depName, filtros }){
     { h:"Nombre completo",  w:34, al:"left"   },
     { h:"Cédula",           w:16, al:"center" },
     { h:"Cargo",            w:30, al:"left"   },
-    { h:"Área",             w:24, al:"left"   },
+    { h: esMedico ? "Tipo de médico" : "Área", w:esMedico ? 30 : 24, al:"left" },
     { h:"Ciudad",           w:18, al:"left"   },
     { h:"Fecha de ingreso", w:17, al:"center" },
   ];
@@ -2567,7 +2569,8 @@ async function exportarPersonalExcel({ rows, titulo, depName, filtros }){
       `${e.first_name||""} ${e.last_name||""}`.trim(),
       /^\d{1,15}$/.test(doc) ? Number(doc) : doc,
       e.position_title || "—",
-      depName(e.department_id),
+      esMedico ? (MED_CATEGORIES[e.medical_category] ? MED_CATEGORIES[e.medical_category]+(e.specialty?" · "+e.specialty:"") : "—")
+               : depName(e.department_id),
       e.city || "—",
       excelDate(e.hire_date) || "—",
     ]);
@@ -2642,8 +2645,10 @@ function cursosActuales(cursos){
 }
 
 const medToForm = (e)=>({ medical_category:e.medical_category||"", specialty:e.specialty||"" });
-/* Fuera de médicos no se envía nada (ver senaPayload). */
+/* Fuera de médicos no se envía nada (ver senaPayload). Los médicos son
+   siempre asistenciales: la clasificación se fija sola al guardar. */
 const medPayload = (f, group)=> group!=="medico" ? {} : {
+  employee_type: "asistencial",
   medical_category: f.medical_category||null,
   specialty: f.medical_category==="especialista" ? (f.specialty.trim()||null) : null,
 };
@@ -2702,6 +2707,7 @@ function EmployeeFormModal({initial, profile, onClose, onSaved}){
   const toast = useToast();
   const isEdit = !!initial.id;
   const cfg = STAFF_GROUPS[form.staff_group] || STAFF_GROUPS.empleado;
+  const esMed = form.staff_group==="medico";   // médicos: sin área ni clasificación
   const set = (k)=>(e)=>setForm({...form,[k]:e.target.value});
 
   const save = async ()=>{
@@ -2744,13 +2750,13 @@ function EmployeeFormModal({initial, profile, onClose, onSaved}){
         <Field label="Teléfono"><input value={form.phone} onChange={set("phone")}/></Field>
         <Field label="Dirección"><input value={form.address} onChange={set("address")}/></Field>
         <Field label="Ciudad"><input value={form.city} onChange={set("city")}/></Field>
-        <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>
+        {!esMed && <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>}
         <Field label="Cargo"><input value={form.position_title} onChange={set("position_title")}/></Field>
         <Field label="Grupo"><select value={form.staff_group} onChange={set("staff_group")}>{opts(STAFF_LABELS)}</select></Field>
-        {form.staff_group==="medico" && <MedicoFields form={form} setForm={setForm}/>}
-        <FieldBox label="Clasificación">
+        {esMed && <MedicoFields form={form} setForm={setForm}/>}
+        {!esMed && <FieldBox label="Clasificación">
           <SegClasificacion value={form.employee_type} onChange={(v)=>setForm({...form,employee_type:v})}/>
-        </FieldBox>
+        </FieldBox>}
         <Field label="Fecha de ingreso"><input type="date" value={form.hire_date} onChange={set("hire_date")}/></Field>
         <Field label="Fecha de retiro (opcional)"><input type="date" value={form.termination_date} onChange={set("termination_date")}/></Field>
         <Field label="Salario base"><input type="number" value={form.salary} onChange={set("salary")}/></Field>
@@ -2770,10 +2776,10 @@ function EmployeeFormModal({initial, profile, onClose, onSaved}){
         {form.staff_group==="aprendiz" && <SenaFields form={form} setForm={setForm}/>}
       </div>
       <Field label="Notas"><textarea value={form.notes} onChange={set("notes")}/></Field>
-      <p className="muted" style={{fontSize:12,marginTop:10}}>
+      {!esMed && <p className="muted" style={{fontSize:12,marginTop:10}}>
         La clasificación decide cómo se cuentan las vacaciones: administrativo de {WORK_WEEK_LABEL.administrativo},
         asistencial de {WORK_WEEK_LABEL.asistencial}.
-      </p>
+      </p>}
     </Modal>
   );
 }
@@ -2800,7 +2806,9 @@ function Staff({group, profile, onOpenEmployee}){
   const [tipoMed,setTipoMed] = useState("");   // filtro de médicos: general | especialista
   const [exportando,setExportando] = useState(false);
   const blank = { nombre:"", document_number:"", cargo:"", ciudad:"", area_name:"", employee_type:"",
-    hire_date:todayISO(), termination_date:"", contract_type: esAprendiz ? "aprendizaje" : "termino_fijo", end_date:"",
+    hire_date:todayISO(), termination_date:"", end_date:"",
+    // Los médicos siempre se vinculan por prestación de servicios.
+    contract_type: esAprendiz ? "aprendizaje" : esMedico ? "prestacion_servicios" : "termino_fijo",
     ...SENA_BLANK, sena_productiva_start: esAprendiz ? todayISO() : "",
     medical_category:"", specialty:"" };
   const [form,setForm] = useState(blank);
@@ -2845,7 +2853,7 @@ function Staff({group, profile, onOpenEmployee}){
         ciudad && `Ciudad: ${(ciudades.find(c=>c.key===ciudad)||{}).label||ciudad}`,
         tipoMed && `Tipo: ${MED_CATEGORIES[tipoMed]}`,
       ].filter(Boolean).join(" · ");
-      await exportarPersonalExcel({ rows, titulo:cfg.label, depName, filtros });
+      await exportarPersonalExcel({ rows, titulo:cfg.label, depName, filtros, esMedico });
       toast("Archivo de Excel generado.","ok");
     }catch(e){ toast("No se pudo generar el Excel: "+friendlyError(e),"err"); }
     finally{ setExportando(false); }
@@ -2877,7 +2885,7 @@ function Staff({group, profile, onOpenEmployee}){
         const cPayload = {
           employee_id:emp.id, contract_number:"CT-"+form.document_number.trim()+"-1",
           type:form.contract_type, start_date:form.hire_date,
-          end_date: form.contract_type==="termino_fijo" ? (form.end_date||null) : null,
+          end_date: form.contract_type==="termino_fijo" || esMedico ? (form.end_date||null) : null,
           position_title:form.cargo||null, department_id:area.id, status:"vigente", created_by:profile.id
         };
         const { error:cErr } = await sb.from("contracts").insert(cPayload);
@@ -2923,15 +2931,19 @@ function Staff({group, profile, onOpenEmployee}){
             <Field label="Nombre completo"><input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Nombres y apellidos"/></Field>
             <Field label="Cédula"><input value={form.document_number} onChange={e=>setForm({...form,document_number:e.target.value})} placeholder="Número de cédula"/></Field>
             <Field label="Cargo"><input value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Cargo o puesto"/></Field>
-            <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>
+            {/* Médicos: sin área, sin clasificación y contrato fijo de prestación de servicios. */}
+            {!esMedico && <Field label="Área"><AreaInput value={form.area_name} onChange={(v)=>setForm({...form,area_name:v})}/></Field>}
             <Field label="Ciudad"><input value={form.ciudad} onChange={e=>setForm({...form,ciudad:e.target.value})} placeholder="Ciudad donde labora"/></Field>
-            <FieldBox label="Clasificación">
+            {!esMedico && <FieldBox label="Clasificación">
               <SegClasificacion value={form.employee_type} onChange={(v)=>setForm({...form,employee_type:v})}/>
-            </FieldBox>
+            </FieldBox>}
             <Field label="Fecha de ingreso"><input type="date" value={form.hire_date} onChange={e=>setForm({...form,hire_date:e.target.value})}/></Field>
             <Field label="Fecha de retiro (opcional)"><input type="date" value={form.termination_date} onChange={e=>setForm({...form,termination_date:e.target.value})}/></Field>
-            <Field label="Tipo de contrato"><select value={form.contract_type} onChange={e=>setForm({...form,contract_type:e.target.value})}>{opts(CONTRACT_TYPES)}</select></Field>
-            {form.contract_type==="termino_fijo" && <Field label="Fecha fin del contrato"><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})}/></Field>}
+            {esMedico
+              ? <Field label="Tipo de contrato"><input value={CONTRACT_TYPES.prestacion_servicios} readOnly disabled/></Field>
+              : <Field label="Tipo de contrato"><select value={form.contract_type} onChange={e=>setForm({...form,contract_type:e.target.value})}>{opts(CONTRACT_TYPES)}</select></Field>}
+            {(form.contract_type==="termino_fijo" || esMedico) &&
+              <Field label={esMedico ? "Fecha fin del contrato (opcional)" : "Fecha fin del contrato"}><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})}/></Field>}
             {esAprendiz && <SenaFields form={form} setForm={setForm}/>}
             {esMedico && <MedicoFields form={form} setForm={setForm}/>}
           </div>
@@ -2946,12 +2958,12 @@ function Staff({group, profile, onOpenEmployee}){
 
       <div className="card filters">
         <Field label="Buscar"><input placeholder="Nombre o cédula…" value={q} onChange={e=>setQ(e.target.value)}/></Field>
-        <Field label="Área">
+        {!esMedico && <Field label="Área">
           <select value={dep} onChange={e=>setDep(e.target.value)}>
             <option value="">Todas las áreas</option>
             {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
-        </Field>
+        </Field>}
         <Field label="Ciudad">
           <select value={ciudad} onChange={e=>setCiudad(e.target.value)}>
             <option value="">Todas las ciudades</option>
@@ -2977,7 +2989,7 @@ function Staff({group, profile, onOpenEmployee}){
        rows.length===0 ? <Empty text={`No hay registros de ${cfg.label.toLowerCase()} que coincidan con los filtros.`}/> :
        <div className="table-wrap">
         <table>
-          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th>{esMedico && <th>Tipo de médico</th>}<th>Clasificación</th><th>Área</th><th>Ciudad</th><th>Ingreso</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th>{esMedico ? <th>Tipo de médico</th> : <React.Fragment><th>Clasificación</th><th>Área</th></React.Fragment>}<th>Ciudad</th><th>Ingreso</th><th>Estado</th></tr></thead>
           <tbody>
             {rows.map(e=>(
               <tr key={e.id} onClick={()=>onOpenEmployee(e.id)}>
@@ -2988,8 +3000,8 @@ function Staff({group, profile, onOpenEmployee}){
                   ? <span className={"badge "+(e.medical_category==="especialista"?"b-amber":"b-sky")}><span className="dot"/>
                       {MED_CATEGORIES[e.medical_category]}{e.specialty ? " · "+e.specialty : ""}</span>
                   : "—"}</td>}
-                <td>{EMPLOYEE_TYPES[e.employee_type] ? <TipoBadge value={e.employee_type}/> : "—"}</td>
-                <td>{depName(e.department_id)}</td>
+                {!esMedico && <td>{EMPLOYEE_TYPES[e.employee_type] ? <TipoBadge value={e.employee_type}/> : "—"}</td>}
+                {!esMedico && <td>{depName(e.department_id)}</td>}
                 <td>{e.city||"—"}</td>
                 <td>{fmt(e.hire_date)}</td>
                 <td><Badge status={e.status}/></td>
@@ -3099,10 +3111,16 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
   // Los médicos no llevan seguridad social en el sistema (contratan por
   // prestación de servicios y cotizan como independientes).
   const cfg = STAFF_GROUPS[e.staff_group || group || "empleado"] || STAFF_GROUPS.empleado;
-  const TABS = [
+  // Los médicos (prestación de servicios) solo llevan datos, cursos y contratos.
+  const esMed = e.staff_group==="medico";
+  const TABS = esMed ? [
     {id:"personal",label:"Personal"},
     {id:"laboral",label:"Laboral"},
-    ...(e.staff_group==="medico" ? [{id:"cursos",label:"Cursos"}] : []),
+    {id:"cursos",label:"Cursos"},
+    {id:"contratos",label:"Contratos"},
+  ] : [
+    {id:"personal",label:"Personal"},
+    {id:"laboral",label:"Laboral"},
     {id:"cargos",label:"Historial de cargos"},
     {id:"contratos",label:"Contratos"},
     ...(cfg.ss ? [{id:"seguridad",label:"Seguridad social"}] : []),
@@ -3126,7 +3144,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
           <div className="kv" style={{marginTop:8}}>
             <span>{e.document_type} <b>{e.document_number}</b></span>
             <span>Cargo: <b>{e.position_title||"—"}</b></span>
-            <span>Área: <b>{depName(e.department_id)}</b></span>
+            {!esMed && <span>Área: <b>{depName(e.department_id)}</b></span>}
             <span>Ingreso: <b>{fmt(e.hire_date)}</b></span>
             {e.staff_group==="medico" && e.medical_category &&
               <span>Tipo: <b>{MED_CATEGORIES[e.medical_category]}{e.specialty ? " · "+e.specialty : ""}</b></span>}
@@ -3134,7 +3152,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
             {"id_card_delivered" in e && <span>Carné: <b style={{color:e.id_card_delivered?"var(--green)":"var(--red)"}}>
               {e.id_card_delivered ? "Entregado"+(e.id_card_date?" el "+fmt(e.id_card_date):"") : "No entregado"}</b></span>}
           </div>
-          {write && (
+          {write && !esMed && (
             <div style={{marginTop:14,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
               <span className="muted" style={{fontSize:11.5,fontWeight:700,letterSpacing:".02em"}}>Clasificación:</span>
               <div style={{width:"auto",minWidth:250,maxWidth:320,flex:"0 1 auto"}}>
@@ -3159,7 +3177,7 @@ function EmployeeProfile({employeeId, profile, departments, ssEntities, onBack, 
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <TipoBadge value={e.employee_type}/>
+          <TipoBadge value={esMed ? "asistencial" : e.employee_type}/>
           <Badge status={e.status}/>
         </div>
       </div>
@@ -3387,6 +3405,7 @@ function TabLaboral({e, depName, showSalary, onEdit}){
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
         {e.staff_group==="medico" && "medical_category" in e && <React.Fragment>
           <Info label="Tipo de médico" value={MED_CATEGORIES[e.medical_category] || "Sin clasificar"}/>
+          <Info label="Clasificación" value={EMPLOYEE_TYPES.asistencial}/>
           {e.medical_category==="especialista" && <Info label="Especialidad" value={e.specialty}/>}
         </React.Fragment>}
         {e.staff_group==="aprendiz" && "sena_productiva_start" in e && <React.Fragment>
@@ -3397,9 +3416,11 @@ function TabLaboral({e, depName, showSalary, onEdit}){
         </React.Fragment>}
         <Info label="Cargo" value={e.position_title}/>
         <Info label="Grupo" value={STAFF_LABELS[e.staff_group||"empleado"]}/>
-        <Info label="Clasificación" value={EMPLOYEE_TYPES[e.employee_type]}/>
-        <Info label="Semana laboral" value={cap(workWeekLabel(e.employee_type))}/>
-        <Info label="Área" value={depName(e.department_id)}/>
+        {e.staff_group!=="medico" && <React.Fragment>
+          <Info label="Clasificación" value={EMPLOYEE_TYPES[e.employee_type]}/>
+          <Info label="Semana laboral" value={cap(workWeekLabel(e.employee_type))}/>
+          <Info label="Área" value={depName(e.department_id)}/>
+        </React.Fragment>}
         <Info label="Fecha de ingreso" value={fmt(e.hire_date)}/>
         <Info label="Fecha de retiro" value={fmt(e.termination_date)}/>
         <Info label="Estado" value={EMP_STATUS[e.status]}/>
