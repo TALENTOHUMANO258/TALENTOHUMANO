@@ -940,7 +940,7 @@
 const SUPABASE_URL      = "https://bemhrdkcrihjdkzfmtgf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlbWhyZGtjcmloamRremZtdGdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE5MjUsImV4cCI6MjEwMTg1NzkyNX0.9GUikIKf9B_H3TdmpJxLBiwNxDdu6putQ2iXhQPghck";
 
-const APP_VERSION = "v13 · cursos de médicos · exportar a Excel · barra superior";
+const APP_VERSION = "v13.2 · médicos: tipo de especialidad · asistenciales";
 
 /* Logotipo oficial: PNG blanco sobre fondo transparente (1536×308). Por eso
    siempre se dibuja sobre una placa azul. Si el archivo remoto no carga
@@ -2622,6 +2622,9 @@ const CURSOS_SUGERIDOS = {
   especialista: ["Soporte Vital Avanzado (ACLS)","Seguridad del paciente","Protección radiológica",
                  "Bioseguridad y control de infecciones","Manejo del dolor"],
 };
+/* Sugerencias del campo «Tipo de especialidad»; se puede escribir cualquier otra. */
+const ESPECIALIDADES = ["Urología","Anestesiología","Cirugía general","Medicina interna","Nefrología",
+  "Radiología","Ginecología","Oncología","Patología","Pediatría","Medicina familiar"];
 const VIGENCIAS = [["12","1 año"],["24","2 años"],["36","3 años"],["60","5 años"],["6","6 meses"],["0","No vence"],["otra","Otra fecha"]];
 const DIAS_AVISO_CURSO = 30;
 /* Estado de un curso según su fecha de vencimiento. */
@@ -2666,9 +2669,15 @@ function MedicoFields({form, setForm}){
           ))}
         </div>
       </FieldBox>
-      {form.medical_category==="especialista" &&
-        <Field label="Especialidad"><input value={form.specialty} placeholder="Ej.: Urología, Anestesiología…"
-          onChange={e=>setForm({...form,specialty:e.target.value})}/></Field>}
+      {/* Siempre visible: escribir una especialidad marca al médico como especialista. */}
+      <Field label="Tipo de especialidad">
+        <input list="th-especialidades" value={form.medical_category==="general" ? "" : form.specialty}
+          disabled={form.medical_category==="general"}
+          placeholder={form.medical_category==="general" ? "No aplica (médico general)" : "Elige o escribe: Urología, Anestesiología…"}
+          onChange={e=>setForm({...form, specialty:e.target.value,
+            medical_category: e.target.value.trim() ? "especialista" : form.medical_category})}/>
+        <datalist id="th-especialidades">{ESPECIALIDADES.map(s=><option key={s} value={s}/>)}</datalist>
+      </Field>
     </React.Fragment>
   );
 }
